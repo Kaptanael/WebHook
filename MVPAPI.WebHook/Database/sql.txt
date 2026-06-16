@@ -1,0 +1,104 @@
+﻿USE [MVPWebhookDB]
+GO
+/****** Object:  Table [dbo].[WebHookConnection]    Script Date: 6/12/2026 9:39:50 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[WebHookConnection](
+	[Id] [uniqueidentifier] NOT NULL,
+	[CompanyId] [int] NOT NULL,
+	[ApplicationName] [nvarchar](255) NOT NULL,
+	[ClientToken] [nvarchar](512) NOT NULL,
+	[IsActive] [bit] NOT NULL,
+	[MVPApiToken] [nvarchar](max) NOT NULL,
+	[MVPApiRefreshToken] [nvarchar](max) NOT NULL,
+	[MVPApiExpiresIn] [datetime2](7) NOT NULL,
+	[CreatedAtUtc] [datetime] NOT NULL,
+ CONSTRAINT [PK_WebHookConnection] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+ CONSTRAINT [UQ_WebHookConnection_ClientToken] UNIQUE NONCLUSTERED 
+(
+	[ClientToken] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[WebhookEndpoints]    Script Date: 6/12/2026 9:39:50 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[WebhookEndpoints](
+	[Id] [uniqueidentifier] NOT NULL,
+	[EndPointToken] [nvarchar](512) NOT NULL,
+	[Endpoint] [nvarchar](2048) NOT NULL,
+	[CompanyId] [int] NOT NULL,
+	[TriggerConfigJson] [nvarchar](max) NOT NULL,
+	[IsActive] [bit] NOT NULL,
+	[CreatedAtUtc] [datetime] NOT NULL,
+	[ActionDataSchema] [nvarchar](max) NOT NULL,
+ CONSTRAINT [PK_WebhookEndpoints] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+ CONSTRAINT [UQ_WebhookEndpoints_Endpoint] UNIQUE NONCLUSTERED 
+(
+	[Endpoint] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+ CONSTRAINT [UQ_WebhookEndpoints_EndPointToken] UNIQUE NONCLUSTERED 
+(
+	[EndPointToken] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[WebhookEvents]    Script Date: 6/12/2026 9:39:50 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[WebhookEvents](
+	[Id] [uniqueidentifier] NOT NULL,
+	[WebhookId] [uniqueidentifier] NOT NULL,
+	[EventType] [nvarchar](255) NOT NULL,
+	[Payload] [nvarchar](max) NOT NULL,
+	[Status] [tinyint] NOT NULL,
+	[Attempts] [int] NOT NULL,
+	[LastError] [nvarchar](max) NULL,
+	[ReceivedAtUtc] [datetime2](7) NOT NULL,
+	[NextAttemptAtUtc] [datetime2](7) NULL,
+	[ProcessingStartedAtUtc] [datetime2](7) NULL,
+	[ProcessedAtUtc] [datetime2](7) NULL,
+	[Provider] [nvarchar](255) NULL,
+ CONSTRAINT [PK_WebhookEvents] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[WebHookConnection] ADD  DEFAULT (newsequentialid()) FOR [Id]
+GO
+ALTER TABLE [dbo].[WebHookConnection] ADD  DEFAULT ((1)) FOR [IsActive]
+GO
+ALTER TABLE [dbo].[WebHookConnection] ADD  DEFAULT (getutcdate()) FOR [CreatedAtUtc]
+GO
+ALTER TABLE [dbo].[WebhookEndpoints] ADD  DEFAULT (newsequentialid()) FOR [Id]
+GO
+ALTER TABLE [dbo].[WebhookEndpoints] ADD  DEFAULT ((1)) FOR [IsActive]
+GO
+ALTER TABLE [dbo].[WebhookEndpoints] ADD  DEFAULT (getutcdate()) FOR [CreatedAtUtc]
+GO
+ALTER TABLE [dbo].[WebhookEvents] ADD  DEFAULT (newsequentialid()) FOR [Id]
+GO
+ALTER TABLE [dbo].[WebhookEvents] ADD  DEFAULT ((1)) FOR [Status]
+GO
+ALTER TABLE [dbo].[WebhookEvents] ADD  DEFAULT ((0)) FOR [Attempts]
+GO
+ALTER TABLE [dbo].[WebhookEvents] ADD  DEFAULT (getutcdate()) FOR [ReceivedAtUtc]
+GO
+ALTER TABLE [dbo].[WebhookEvents]  WITH CHECK ADD  CONSTRAINT [FK_WebhookEvents_WebHookConnection] FOREIGN KEY([WebhookId])
+REFERENCES [dbo].[WebHookConnection] ([Id])
+GO
+ALTER TABLE [dbo].[WebhookEvents] CHECK CONSTRAINT [FK_WebhookEvents_WebHookConnection]
+GO

@@ -1,0 +1,6 @@
+@MVPAPI.WebHook_HostAddress = http://localhost:5062
+
+GET {{MVPAPI.WebHook_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

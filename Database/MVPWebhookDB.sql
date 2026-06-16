@@ -1,0 +1,62 @@
+USE [MVPWebhookDB]
+GO
+/****** Object:  Table [dbo].[WebHookConnection]    Script Date: 6/11/2026 10:28:03 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[WebHookConnection](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[CompanyId] [int] NOT NULL,
+	[ApplicationName] [nvarchar](255) NOT NULL,
+	[ClientToken] [nvarchar](512) NOT NULL,
+	[Status] [tinyint] NOT NULL,
+	[MVPApiToken] [nvarchar](max) NOT NULL,
+	[MVPApiRefreshToken] [nvarchar](max) NOT NULL,
+	[MVPApiExpiresIn] [datetime2](7) NOT NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+UNIQUE NONCLUSTERED 
+(
+	[CompanyId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+UNIQUE NONCLUSTERED 
+(
+	[ClientToken] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[WebhookEndpoints]    Script Date: 6/11/2026 10:28:03 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[WebhookEndpoints](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[EndPointToken] [nvarchar](512) NOT NULL,
+	[Endpoint] [nvarchar](2048) NOT NULL,
+	[CompanyId] [int] NOT NULL,
+	[TriggerJson] [nvarchar](max) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+UNIQUE NONCLUSTERED 
+(
+	[Endpoint] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[WebHookConnection] ADD  DEFAULT ((1)) FOR [Status]
+GO
+ALTER TABLE [dbo].[WebhookEndpoints]  WITH CHECK ADD  CONSTRAINT [FK_WebhookEndpoints_Connection] FOREIGN KEY([CompanyId])
+REFERENCES [dbo].[WebHookConnection] ([CompanyId])
+GO
+ALTER TABLE [dbo].[WebhookEndpoints] CHECK CONSTRAINT [FK_WebhookEndpoints_Connection]
+GO
+ALTER TABLE [dbo].[WebHookConnection]  WITH CHECK ADD  CONSTRAINT [CHK_Connection_Status] CHECK  (([Status]=(3) OR [Status]=(2) OR [Status]=(1)))
+GO
+ALTER TABLE [dbo].[WebHookConnection] CHECK CONSTRAINT [CHK_Connection_Status]
+GO
