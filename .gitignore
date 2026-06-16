@@ -1,0 +1,12 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/MVPAPI.WebHook/FileContentIndex
+/.vs/MVPAPI.WebHook/CopilotIndices/17.14.734.62261
+/.vs/MVPAPI.WebHook/DesignTimeBuild
+/.vs/ProjectEvaluation
+/.vs/MVPAPI.WebHook
+/.claude
+/MVPAPI.WebHook/bin/Debug/net9.0
+/MVPAPI.WebHook/obj
