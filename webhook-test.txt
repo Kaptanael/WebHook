@@ -1,0 +1,7 @@
+POST /api/webhook HTTP/1.1
+Content-Type: application/json
+X-Endpoint-Token: U3xhcGkubXZwYWNjZXNzLm9ubGluZQowYjA2NmM3MjllNWY0YTA2YjU3MWRlNzUwNWEyMDViZi05NGNmNWE2NWQzYTk0ODcwYmU3N2QxNjM0NDRlN2VkZgphcGktY2lkLThhYTJkZjNiCkBwVnpuaWNSOHRUT3BoMG0lOFI2byRhTDFmcUc3VmJYCmFwaS1tdnAtaW50ZWdyYXRpb24temFwaWVyCjUwMDg0Mg
+X-Timestamp: 1781693389
+X-Signature: 6a4c773acd1b09d3dd22a2a06c3555edd71a9991bb1c0ec70d6d7101c8da23f3
+
+{"eventType":"event.create","provider":"MVP","payload":{"priority":1,"category":2,"panelId":101,"eventDate":"2026-06-17T08:30:00Z","deviceId":205,"status":1,"facilityNo":1,"badge":123456,"class":"Access","description":"Door opened","name":"Main Entrance","hasPhoto":false,"hasVideo":false,"responseRequired":false,"sequenceNoFromLock":0,"recordCount":1}}

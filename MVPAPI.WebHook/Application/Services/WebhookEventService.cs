@@ -1,19 +1,71 @@
+using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.Common.Exceptions;
+using MVPAPI.WebHook.Application.DTOs.Endpoints;
 using MVPAPI.WebHook.Application.DTOs.Events;
 using MVPAPI.WebHook.Application.Interfaces;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 using MVPAPI.WebHook.Domain.Entities;
 using MVPAPI.WebHook.Domain.Enums;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace MVPAPI.WebHook.Application.Services;
 
 public class WebhookEventService(
+    ITokenValidator tokenValidator,
     IWebHookConnectionRepository connectionRepository,
     IWebhookEndpointRepository endpointRepository,
     IWebhookEventRepository eventRepository) : IWebhookEventService
 {
     private const int MaxAttempts = 5;
+    private const int TimestampToleranceSeconds = 300;
+
+    public async Task<Result<EventResponse>> PublishEventAsync(
+        EventRequest request,
+        string? token,
+        string? xSignature,
+        string? xTimestamp,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(xTimestamp))
+            return Result.Failure<EventResponse>("Missing X-Timestamp header.");
+
+        if (!long.TryParse(xTimestamp, out var ts) ||
+            Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts) > TimestampToleranceSeconds)
+            return Result.Failure<EventResponse>("Request timestamp is invalid or expired.");
+
+        if (string.IsNullOrWhiteSpace(xSignature))
+            return Result.Failure<EventResponse>("Missing X-Signature header.");
+
+        if (string.IsNullOrWhiteSpace(token))
+            return Result.Failure<EventResponse>("Missing X-Endpoint-Token header.");
+
+        var decodeResult = tokenValidator.DecodeToken(token);
+        if (!decodeResult.IsSuccess)
+            return Result.Failure<EventResponse>(decodeResult.Error!);
+
+        var decoded = decodeResult.Value!;
+
+        var rawPayload = request.Payload.GetRawText();
+
+        var expected = ComputeHmac(decoded.ApiKey, $"{xTimestamp}.{rawPayload}");
+        if (!CryptographicEquals(expected, xSignature))
+            return Result.Failure<EventResponse>("Invalid signature.");        
+
+        var webhookEvent = new WebhookEvent
+        {
+            WebhookId = Guid.NewGuid(),
+            Provider = request.Provider,
+            EventType = request.EventType,
+            Payload = rawPayload,
+            Status = EventStatus.Pending,
+            ReceivedAtUtc = DateTime.UtcNow,
+            NextAttemptAtUtc = DateTime.UtcNow
+        };
+        await eventRepository.AddAsync(webhookEvent, cancellationToken);
+        return Result.Success<EventResponse>(ToResponse(webhookEvent));
+    }
 
     public async Task<IReadOnlyList<EventResponse>> PublishAsync(PublishEventRequest request, CancellationToken cancellationToken = default)
     {
@@ -105,7 +157,6 @@ public class WebhookEventService(
         }
         else
         {
-            // Exponential backoff: 1, 2, 4, 8... minutes
             webhookEvent.Status = EventStatus.Retrying;
             webhookEvent.NextAttemptAtUtc = DateTime.UtcNow.AddMinutes(Math.Pow(2, webhookEvent.Attempts - 1));
         }
@@ -113,6 +164,19 @@ public class WebhookEventService(
         await eventRepository.UpdateAsync(webhookEvent, cancellationToken);
         return true;
     }
+
+    private static string ComputeHmac(string secret, string message)
+    {
+        var key = Encoding.UTF8.GetBytes(secret);
+        var data = Encoding.UTF8.GetBytes(message);
+        using var hmac = new HMACSHA256(key);
+        return Convert.ToHexString(hmac.ComputeHash(data)).ToLowerInvariant();
+    }
+
+    private static bool CryptographicEquals(string a, string b)
+        => CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(a),
+            Encoding.UTF8.GetBytes(b));
 
     private static EventResponse ToResponse(WebhookEvent webhookEvent) =>
         new(webhookEvent.Id,

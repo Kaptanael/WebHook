@@ -23,11 +23,9 @@ public class WebhookEndpointService(
 
         var existingWebhookEndpoint = await endpointRepository.GetByEndpointAsync(request.Endpoint, cancellationToken);
         if (existingWebhookEndpoint is not null)
-            return Result.Failure<SubscribeResponse>("Webhook endpoint already exists.");
+            return Result.Failure<SubscribeResponse>("Webhook endpoint already exists.");        
 
-        var triggerConfigJson = request.TriggerConfigJson.GetRawText();
-
-        var schemaResult = WebhookSchemaGenerator.Generate(triggerConfigJson);
+        var schemaResult = WebhookSchemaGenerator.Generate(request.TriggerConfigJson.GetRawText());
         if (!schemaResult.IsSuccess)
             return Result<SubscribeResponse>.Failure(schemaResult.Error!);
 
@@ -38,7 +36,7 @@ public class WebhookEndpointService(
             EndPointToken = token,
             Endpoint = request.Endpoint,
             CompanyId = companyId,
-            TriggerConfigJson = triggerConfigJson,
+            TriggerConfigJson = request.TriggerConfigJson.GetRawText(),
             ActionDataSchema = JsonSerializer.Serialize(actionDataSchema)
         };
 
@@ -47,7 +45,7 @@ public class WebhookEndpointService(
         return Result.Success(new SubscribeResponse
         {
             Id = endpoint.Id,
-            Endpoint = endpoint.Endpoint            
+            RemoteEndpoint = endpoint.Endpoint            
         });
     }
 
@@ -79,9 +77,9 @@ public class WebhookEndpointService(
         if (webhookEndpoint == null)
             return Result.Failure<WebhookSchemaResponse>("Webhook endpoint not found.");
 
-        //var triggerConfig = JsonSerializer.Deserialize<TriggerConfig>(webhookEndpoint.TriggerConfigJson);
-        //if (triggerConfig == null)
-        //    return Result.Failure<WebhookSchemaResponse>("Invalid trigger configuration."); 
+        var triggerConfig = JsonSerializer.Deserialize<TriggerConfig>(webhookEndpoint.TriggerConfigJson);
+        if (triggerConfig == null)
+            return Result.Failure<WebhookSchemaResponse>("Invalid trigger configuration."); 
 
         if (string.IsNullOrWhiteSpace(webhookEndpoint.TriggerConfigJson))
             return Result.Failure<WebhookSchemaResponse>("Trigger configuration is empty.");

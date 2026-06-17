@@ -1,0 +1,125 @@
+### -------------------------------------------------------
+### Webhook Event – POST /api/webhook
+### Visual Studio / VS Code REST Client (.http)
+###
+### Prerequisites
+###   1. Replace {{baseUrl}} with your running host, e.g. https://localhost:7001
+###   2. Replace {{endpointToken}} with the EndPointToken stored in WebhookEndpoints
+###   3. Set {{timestamp}} to the current Unix epoch (seconds):
+###        PowerShell: [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+###   4. Compute {{signature}} with PowerShell (see bottom of file)
+### -------------------------------------------------------
+
+@baseUrl       = https://localhost:7001
+@endpointToken = U3xhcGkubXZwYWNjZXNzLm9ubGluZQowYjA2NmM3MjllNWY0YTA2YjU3MWRlNzUwNWEyMDViZi05NGNmNWE2NWQzYTk0ODcwYmU3N2QxNjM0NDRlN2VkZgphcGktY2lkLThhYTJkZjNiCkBwVnpuaWNSOHRUT3BoMG0lOFI2byRhTDFmcUc3VmJYCmFwaS1tdnAtaW50ZWdyYXRpb24temFwaWVyCjUwMDg0Mg
+@timestamp     = 1781693389
+@signature     = 6a4c773acd1b09d3dd22a2a06c3555edd71a9991bb1c0ec70d6d7101c8da23f3
+
+### --- event.create (Access / Door event) --- SIGNED
+### Signature covers: "{timestamp}.{payload raw JSON}"
+### Recompute signature if you change timestamp or payload values.
+POST {{baseUrl}}/api/webhook
+Content-Type: application/json
+X-Endpoint-Token: {{endpointToken}}
+X-Timestamp: {{timestamp}}
+X-Signature: {{signature}}
+
+{"eventType":"event.create","provider":"MVP","payload":{"priority":1,"category":2,"panelId":101,"eventDate":"2026-06-17T08:30:00Z","deviceId":205,"status":1,"facilityNo":1,"badge":123456,"class":"Access","description":"Door opened","name":"Main Entrance","hasPhoto":false,"hasVideo":false,"responseRequired":false,"sequenceNoFromLock":0,"recordCount":1}}
+
+###
+
+### --- event.acknowledge (Input event) ---
+POST {{baseUrl}}/api/webhook
+Content-Type: application/json
+X-Endpoint-Token: {{endpointToken}}
+X-Timestamp: {{timestamp}}
+X-Signature: {{signature}}
+
+{
+  "eventType": "event.acknowledge",
+  "provider": "MVP",
+  "payload": {
+    "priority": 2,
+    "category": 3,
+    "panelId": 101,
+    "eventDate": "2026-06-17T08:31:00Z",
+    "deviceId": 301,
+    "status": 2,
+    "description": "Input triggered",
+    "name": "Zone 3 Input",
+    "hasPhoto": false,
+    "sequenceNoFromLock": 1,
+    "recordCount": 1
+  }
+}
+
+###
+
+### --- event.operatorresponse (Relay event) ---
+POST {{baseUrl}}/api/webhook
+Content-Type: application/json
+X-Endpoint-Token: {{endpointToken}}
+X-Timestamp: {{timestamp}}
+X-Signature: {{signature}}
+
+{
+  "eventType": "event.operatorresponse",
+  "provider": "MVP",
+  "payload": {
+    "priority": 1,
+    "category": 1,
+    "panelId": 101,
+    "eventDate": "2026-06-17T08:32:00Z",
+    "deviceId": 402,
+    "status": 1,
+    "description": "Relay activated by operator",
+    "name": "Gate Relay",
+    "hasPhoto": false,
+    "sequenceNoFromLock": 2,
+    "recordCount": 1
+  }
+}
+
+###
+
+### --- No token (signature-only auth) ---
+### Signature required; endpoint still needs X-Endpoint-Token to resolve –
+### this will return a validation error unless token-less routing is supported.
+POST {{baseUrl}}/api/webhook
+Content-Type: application/json
+X-Timestamp: {{timestamp}}
+X-Signature: {{signature}}
+
+{
+  "eventType": "event.create",
+  "provider": "ThirdParty",
+  "payload": {
+    "description": "External system event",
+    "sequenceNoFromLock": 0,
+    "recordCount": 1
+  }
+}
+
+###
+### -------------------------------------------------------
+### Compute X-Signature in PowerShell
+### -------------------------------------------------------
+###
+###   $secret    = "YOUR_ENDPOINT_TOKEN_HERE"
+###   $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+###   $body      = Get-Content .\payload.json -Raw   # or paste JSON inline
+###   $message   = "$timestamp.$body"
+###
+###   $key  = [Text.Encoding]::UTF8.GetBytes($secret)
+###   $data = [Text.Encoding]::UTF8.GetBytes($message)
+###   $hmac = [System.Security.Cryptography.HMACSHA256]::new($key)
+###   [BitConverter]::ToString($hmac.ComputeHash($data)).Replace("-","").ToLower()
+###
+### -------------------------------------------------------
+### Header summary
+### -------------------------------------------------------
+###   X-Endpoint-Token  optional  identifies + authenticates the endpoint
+###   X-Timestamp       required  Unix seconds, rejected if >5 min old
+###   X-Signature       required when X-Endpoint-Token is absent;
+###                     optional (but validated) when token is present
+### -------------------------------------------------------

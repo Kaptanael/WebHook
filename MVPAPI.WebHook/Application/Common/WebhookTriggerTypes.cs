@@ -2,10 +2,15 @@
 
 public static class WebhookTriggerTypes
 {
-    public const string AccessEvent = "access.event";
-    public const string InputEvent = "input.event";
-    public const string RelayEvent = "relay.event";
-    public const string DeviceStatus = "device.status";
+    public const string EventCreate = "event.create";
+    public const string EventaAcknowledge = "event.acknowledge";
+    public const string EventOperatorResponse = "event.operatorresponse";    
+}
+
+public static class Provider 
+{
+    public const string MVP = "MVP";
+    public const string ThirdParty = "ThirdParty";
 }
 
 public sealed class WebhookFieldSchema

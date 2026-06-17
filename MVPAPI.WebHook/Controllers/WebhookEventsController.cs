@@ -15,6 +15,7 @@ public class WebhookEventsController(IWebhookEventService eventService) : Contro
         return Ok(events);
     }
 
+    [NonAction]
     [HttpGet("{id:Guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
@@ -22,6 +23,7 @@ public class WebhookEventsController(IWebhookEventService eventService) : Contro
         return webhookEvent is null ? NotFound() : Ok(webhookEvent);
     }
 
+    [NonAction]
     [HttpGet("due")]
     public async Task<IActionResult> GetDue([FromQuery] int batchSize = 50, CancellationToken cancellationToken = default)
     {
@@ -29,6 +31,7 @@ public class WebhookEventsController(IWebhookEventService eventService) : Contro
         return Ok(events);
     }
 
+    [NonAction]
     [HttpPost("{id:Guid}/processing")]
     public async Task<IActionResult> MarkProcessing(Guid id, CancellationToken cancellationToken)
     {
@@ -36,6 +39,7 @@ public class WebhookEventsController(IWebhookEventService eventService) : Contro
         return updated ? NoContent() : NotFound();
     }
 
+    [NonAction]
     [HttpPost("{id:Guid}/completed")]
     public async Task<IActionResult> MarkCompleted(Guid id, CancellationToken cancellationToken)
     {
@@ -43,6 +47,7 @@ public class WebhookEventsController(IWebhookEventService eventService) : Contro
         return updated ? NoContent() : NotFound();
     }
 
+    [NonAction]
     [HttpPost("{id:Guid}/failed")]
     public async Task<IActionResult> MarkFailed(Guid id, [FromBody] MarkFailedRequest request, CancellationToken cancellationToken)
     {

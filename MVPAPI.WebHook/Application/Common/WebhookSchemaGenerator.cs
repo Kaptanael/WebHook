@@ -30,10 +30,9 @@ public static class WebhookSchemaGenerator
 
         return triggerType switch
         {
-            WebhookTriggerTypes.AccessEvent => Result<WebhookActionDataSchema>.Success(BuildAccessEventSchema(root)),
-            WebhookTriggerTypes.InputEvent => Result<WebhookActionDataSchema>.Success(BuildInputEventSchema(root)),
-            WebhookTriggerTypes.RelayEvent => Result<WebhookActionDataSchema>.Success(BuildRelayEventSchema(root)),
-            WebhookTriggerTypes.DeviceStatus => Result<WebhookActionDataSchema>.Success(BuildDeviceStatusSchema(root)),
+            WebhookTriggerTypes.EventCreate => Result<WebhookActionDataSchema>.Success(BuildAccessEventSchema(root)),
+            WebhookTriggerTypes.EventaAcknowledge => Result<WebhookActionDataSchema>.Success(BuildInputEventSchema(root)),
+            WebhookTriggerTypes.EventOperatorResponse => Result<WebhookActionDataSchema>.Success(BuildRelayEventSchema(root)),            
 
             _ => Result<WebhookActionDataSchema>.Failure($"Unsupported triggerType: {triggerType}")
         };
@@ -43,21 +42,19 @@ public static class WebhookSchemaGenerator
     {
         return new WebhookActionDataSchema
         {
-            TriggerType = WebhookTriggerTypes.AccessEvent,
+            TriggerType = WebhookTriggerTypes.EventCreate,
             PayloadName = "Access Event Payload",
             Fields =
             {
                 Field("eventId", "guid", true, Guid.NewGuid()),
                 Field("eventType", "string", true, "access.granted"),
                 Field("eventTimeUtc", "datetime", true, DateTime.UtcNow.ToString("O")),
-                Field("companyId", "integer", true, GetCompanyId(root)),
-                Field("location", "string", false, "Dhaka Office"),
+                Field("companyId", "integer", true, GetCompanyId(root)),                
                 Field("deviceType", "integer", true, 1),
-                Field("panelNo", "integer", true, 2),
-                Field("readerNo", "integer", false, 5),
-                Field("status", "integer", true, 10),
-                Field("statusText", "string", true, "Access Granted"),
-                Field("badge", "string", false, "123456789"),
+                Field("panelId", "guid", true, 2),
+                Field("readerId", "guid", false, 5),
+                Field("status", "integer", true, 10),                
+                Field("badge", "long", false, "123456789"),
                 Field("facilityNo", "integer", false, 101)
             }
         };
@@ -67,7 +64,7 @@ public static class WebhookSchemaGenerator
     {
         return new WebhookActionDataSchema
         {
-            TriggerType = WebhookTriggerTypes.InputEvent,
+            TriggerType = WebhookTriggerTypes.EventaAcknowledge,
             PayloadName = "Input Event Payload",
             Fields =
             {
@@ -89,7 +86,7 @@ public static class WebhookSchemaGenerator
     {
         return new WebhookActionDataSchema
         {
-            TriggerType = WebhookTriggerTypes.RelayEvent,
+            TriggerType = WebhookTriggerTypes.EventOperatorResponse,
             PayloadName = "Relay Event Payload",
             Fields =
             {
@@ -105,29 +102,7 @@ public static class WebhookSchemaGenerator
                 Field("statusText", "string", true, "Relay Activated")
             }
         };
-    }
-
-    private static WebhookActionDataSchema BuildDeviceStatusSchema(JsonElement root)
-    {
-        return new WebhookActionDataSchema
-        {
-            TriggerType = WebhookTriggerTypes.DeviceStatus,
-            PayloadName = "Device Status Payload",
-            Fields =
-            {
-                Field("eventId", "guid", true, Guid.NewGuid()),
-                Field("eventType", "string", true, "device.status"),
-                Field("eventTimeUtc", "datetime", true, DateTime.UtcNow.ToString("O")),
-                Field("companyId", "integer", true, GetCompanyId(root)),
-                Field("location", "string", false, "Dhaka Office"),
-                Field("deviceType", "integer", true, 1),
-                Field("panelNo", "integer", true, 2),
-                Field("deviceNo", "integer", true, 5),
-                Field("status", "integer", true, 1),
-                Field("statusText", "string", true, "Online")
-            }
-        };
-    }
+    }    
 
     private static WebhookFieldSchema Field(
         string name,

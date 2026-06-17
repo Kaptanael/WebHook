@@ -1,9 +1,7 @@
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
-using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.DTOs.Endpoints;
+using MVPAPI.WebHook.Application.DTOs.Events;
 using MVPAPI.WebHook.Application.Interfaces.Services;
-using MVPAPI.WebHook.Application.Services;
 
 namespace MVPAPI.WebHook.Controllers;
 
@@ -12,6 +10,7 @@ namespace MVPAPI.WebHook.Controllers;
 public class WebHookController(
     IWebHookConnectionService connectionService,
     IWebhookEndpointService endpointService,
+    IWebhookEventService eventService,
     ILogger<WebHookController> logger) : ControllerBase
 {
     [HttpPost("connect")]
@@ -78,11 +77,22 @@ public class WebHookController(
         return Ok(result.Value);
     }
 
-    [HttpGet("trigger-definitions")]
-    public IActionResult GetTriggerDefinitions()
+    [HttpPost]
+    public async Task<IActionResult> Event(
+        [FromBody] EventRequest request,
+        [FromHeader(Name = "X-Endpoint-Token")] string? token,
+        [FromHeader(Name = "X-Signature")] string? xSignature,
+        [FromHeader(Name = "X-Timestamp")] string? xTimestamp,
+        CancellationToken cancellationToken)
     {
-        var definitions = WebhookTriggerDefinitionProvider.GetAll();
-
-        return Ok(definitions);
+        var result = await eventService.PublishEventAsync(request, token, xSignature, xTimestamp, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            logger.LogWarning("Webhook event rejected for endpoint {Token}: {Error}", token, result.Error);
+            return Unauthorized(new { Success = false, Error = result.Error });
+        }
+        
+        logger.LogInformation("Webhook event accepted for endpoint {Token}, provider {Provider}, event type {EventType}.", token, request.Provider, request.EventType);
+        return Ok(result.Value);
     }
 }

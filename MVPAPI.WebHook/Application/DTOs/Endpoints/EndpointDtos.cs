@@ -1,3 +1,5 @@
+using MVPAPI.WebHook.Application.Common;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
 namespace MVPAPI.WebHook.Application.DTOs.Endpoints;
@@ -5,10 +7,10 @@ namespace MVPAPI.WebHook.Application.DTOs.Endpoints;
 public record SubscribeRequest(string Endpoint, JsonElement TriggerConfigJson);
 
 public class SubscribeResponse
-{    
+{
     public Guid Id { get; set; }
 
-    public string Endpoint { get; set; } = string.Empty;
+    public string RemoteEndpoint { get; set; } = string.Empty;
 
     public string ResponseSchemaUrl { get; set; } = string.Empty;
 }
@@ -22,21 +24,26 @@ public record EndpointResponse(
     int CompanyId,
     string? TriggerJson);
 
-public record FieldMapping(string SourceField, string TargetField);
-
 public class TriggerConfig
 {
-    public int CompanyId { get; set; }    
+    [Required]
+    public string TriggerType { get; set; } = string.Empty;
 
-    public int? DeviceType { get; set; }
+    [Required]
+    public int CompanyId { get; set; }
 
-    public int? PanelNo { get; set; }
+    [Required]
+    public DeviceType DeviceType { get; set; }
 
-    public int? DeviceNo { get; set; }
+    [Required]
+    public Guid PanelId { get; set; }
+
+    [Required]
+    public Guid DeviceId { get; set; }
 
     public int? Status { get; set; }
 
-    public string? Badge { get; set; }
+    public long? Badge { get; set; }
 
     public int? FacilityNo { get; set; }
 }
