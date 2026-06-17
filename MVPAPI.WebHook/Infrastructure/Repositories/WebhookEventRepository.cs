@@ -6,7 +6,7 @@ using MVPAPI.WebHook.Infrastructure.Persistence;
 
 namespace MVPAPI.WebHook.Infrastructure.Repositories;
 
-public class WebhookEventRepository(IDbConnectionFactory connectionFactory) : IWebhookEventRepository
+public class WebhookEventRepository(IWebhookDbConnectionFactory connectionFactory) : IWebhookEventRepository
 {
     private const string SelectColumns = """
         SELECT Id, WebhookId, Provider, EventType, Payload, Status, Attempts, LastError,

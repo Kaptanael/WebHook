@@ -5,7 +5,7 @@ using MVPAPI.WebHook.Infrastructure.Persistence;
 
 namespace MVPAPI.WebHook.Infrastructure.Repositories;
 
-public class WebHookConnectionRepository(IDbConnectionFactory connectionFactory) : IWebHookConnectionRepository
+public class WebHookConnectionRepository(IWebhookDbConnectionFactory connectionFactory) : IWebHookConnectionRepository
 {
     private const string SelectColumns = """
         SELECT Id, CompanyId, ApplicationName, ClientToken, IsActive,

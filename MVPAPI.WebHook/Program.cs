@@ -11,6 +11,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(options => options.AddPolicy("DevCors", policy =>
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
+}
+
 builder.Services.AddOpenApi();
 
 builder.Services.Configure<WebhookDispatchOptions>(
@@ -46,6 +52,7 @@ if (app.Environment.IsDevelopment())
     {
         options.SwaggerEndpoint("/openapi/v1.json", "MVPAPI WebHook v1");
     });
+    app.UseCors("DevCors");
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();

@@ -92,7 +92,7 @@ public class WebHookController(
             return Unauthorized(new { Success = false, Error = result.Error });
         }
         
-        logger.LogInformation("Webhook event accepted for endpoint {Token}, provider {Provider}, event type {EventType}.", token, request.Provider, request.EventType);
+        logger.LogInformation("Webhook event accepted for endpoint {Token}, provider {Provider}, event type {EventType}.", token, request.Client, request.EventType);
         return Ok(result.Value);
     }
 }

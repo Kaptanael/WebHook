@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webhook Event Tester</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #90cdf4;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  h1 span { color: #68d391; font-size: 0.85rem; font-weight: 400; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: #1a1d27;
+    border: 1px solid #2d3148;
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .card h2 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #718096;
+    margin-bottom: 16px;
+  }
+
+  label {
+    display: block;
+    font-size: 0.78rem;
+    color: #a0aec0;
+    margin-bottom: 4px;
+    margin-top: 12px;
+  }
+
+  label:first-of-type { margin-top: 0; }
+
+  input, select, textarea {
+    width: 100%;
+    background: #0f1117;
+    border: 1px solid #2d3148;
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input:focus, textarea:focus { border-color: #4299e1; }
+
+  textarea { resize: vertical; }
+
+  .row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .row > * { flex: 1; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-family: monospace;
+    margin-left: 6px;
+  }
+
+  .badge-auto { background: #2d3748; color: #68d391; }
+  .badge-req  { background: #2d3748; color: #fc8181; }
+
+  .sig-preview {
+    margin-top: 8px;
+    font-family: monospace;
+    font-size: 0.72rem;
+    color: #68d391;
+    word-break: break-all;
+    min-height: 18px;
+  }
+
+  .ts-preview {
+    margin-top: 4px;
+    font-size: 0.72rem;
+    color: #a0aec0;
+  }
+
+  button {
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px;
+    background: #2b6cb0;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  button:hover { background: #3182ce; }
+  button:active { background: #2c5282; }
+  button:disabled { background: #2d3748; color: #718096; cursor: not-allowed; }
+
+  .response-card {
+    margin-top: 20px;
+    background: #1a1d27;
+    border: 1px solid #2d3148;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .response-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #2d3148;
+    font-size: 0.82rem;
+  }
+
+  .status-badge {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-family: monospace;
+  }
+
+  .status-2xx { background: #22543d; color: #68d391; }
+  .status-4xx { background: #742a2a; color: #fc8181; }
+  .status-5xx { background: #744210; color: #f6ad55; }
+
+  .response-time { color: #718096; font-size: 0.75rem; }
+
+  .response-body {
+    padding: 16px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #e2e8f0;
+    max-height: 360px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid #2d3148;
+  }
+
+  .tab {
+    padding: 8px 16px;
+    font-size: 0.78rem;
+    color: #718096;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s;
+  }
+
+  .tab.active { color: #90cdf4; border-bottom-color: #4299e1; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .sent-headers {
+    padding: 16px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    line-height: 1.8;
+    color: #a0aec0;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .sent-headers .key { color: #90cdf4; }
+  .sent-headers .val { color: #e2e8f0; word-break: break-all; }
+
+  .placeholder {
+    padding: 40px 16px;
+    text-align: center;
+    color: #4a5568;
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>Webhook Event Tester <span>POST /api/WebHook</span></h1>
+
+<div class="grid">
+
+  <!-- LEFT: Config -->
+  <div>
+    <div class="card">
+      <h2>Connection</h2>
+
+      <label>Base URL <span class="badge badge-req">required</span></label>
+      <input id="baseUrl" value="http://localhost:5062">
+
+      <label>X-Endpoint-Token <span class="badge badge-req">required</span></label>
+      <input id="token" value="U3xhcGkubXZwYWNjZXNzLm9ubGluZQowYjA2NmM3MjllNWY0YTA2YjU3MWRlNzUwNWEyMDViZi05NGNmNWE2NWQzYTk0ODcwYmU3N2QxNjM0NDRlN2VkZgphcGktY2lkLThhYTJkZjNiCkBwVnpuaWNSOHRUT3BoMG0lOFI2byRhTDFmcUc3VmJYCmFwaS1tdnAtaW50ZWdyYXRpb24temFwaWVyCjUwMDg0Mg">
+
+      <label>API Key <small style="color:#718096">(HMAC secret — decoded from token)</small></label>
+      <input id="apiKey" value="0b066c729e5f4a06b571de7505a205bf-94cf5a65d3a94870be77d163444e7edf">
+
+      <label>X-Timestamp <span class="badge badge-auto">auto</span></label>
+      <input id="timestamp" placeholder="Leave blank to auto-generate">
+      <div class="ts-preview" id="tsPreview"></div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h2>Payload</h2>
+
+      <div class="row">
+        <div>
+          <label>Event Type</label>
+          <select id="eventType">
+            <option value="event.create">event.create</option>
+            <option value="event.acknowledge">event.acknowledge</option>
+            <option value="event.operatorresponse">event.operatorresponse</option>
+          </select>
+        </div>
+        <div>
+          <label>Provider</label>
+          <select id="provider">
+            <option value="MVP">MVP</option>
+            <option value="ThirdParty">ThirdParty</option>
+          </select>
+        </div>
+      </div>
+
+      <label>Payload (JSON)</label>
+      <textarea id="payload" rows="12">{
+  "priority": 1,
+  "category": 2,
+  "panelId": 101,
+  "eventDate": "2026-06-17T08:30:00Z",
+  "deviceId": 205,
+  "status": 1,
+  "facilityNo": 1,
+  "badge": 123456,
+  "class": "Access",
+  "description": "Door opened",
+  "name": "Main Entrance",
+  "hasPhoto": false,
+  "hasVideo": false,
+  "responseRequired": false,
+  "sequenceNoFromLock": 0,
+  "recordCount": 1
+}</textarea>
+
+      <label>X-Signature <span class="badge badge-auto">auto-computed</span></label>
+      <div class="sig-preview" id="sigPreview">— will appear here before send —</div>
+    </div>
+
+    <button id="sendBtn" onclick="send()">Send Request</button>
+  </div>
+
+  <!-- RIGHT: Response -->
+  <div>
+    <div class="response-card">
+      <div id="responsePlaceholder" class="placeholder">
+        Response will appear here after you send a request.
+      </div>
+
+      <div id="responseContent" style="display:none">
+        <div class="response-header">
+          <span class="status-badge" id="statusBadge"></span>
+          <span id="statusText" style="color:#a0aec0;font-size:0.8rem"></span>
+          <span class="response-time" id="responseTime"></span>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('body', this)">Body</div>
+          <div class="tab" onclick="switchTab('headers', this)">Sent Headers</div>
+        </div>
+
+        <div id="tab-body" class="tab-panel active">
+          <div class="response-body" id="responseBody"></div>
+        </div>
+
+        <div id="tab-headers" class="tab-panel">
+          <div class="sent-headers" id="sentHeaders"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+async function computeHmac(secret, message) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function minifyPayload(jsonStr) {
+  return JSON.stringify(JSON.parse(jsonStr));
+}
+
+async function previewSignature() {
+  try {
+    const apiKey    = document.getElementById('apiKey').value.trim();
+    const ts        = document.getElementById('timestamp').value.trim()
+                      || Math.floor(Date.now() / 1000).toString();
+    const payload   = minifyPayload(document.getElementById('payload').value);
+    const message   = `${ts}.${payload}`;
+    const sig       = await computeHmac(apiKey, message);
+    document.getElementById('sigPreview').textContent = sig;
+    document.getElementById('tsPreview').textContent  = `Unix: ${ts}  →  ${new Date(ts * 1000).toUTCString()}`;
+  } catch {
+    document.getElementById('sigPreview').textContent = '⚠ Invalid payload JSON';
+  }
+}
+
+document.getElementById('payload').addEventListener('input', previewSignature);
+document.getElementById('apiKey').addEventListener('input', previewSignature);
+document.getElementById('timestamp').addEventListener('input', previewSignature);
+previewSignature();
+
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+async function send() {
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const baseUrl    = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
+    const token      = document.getElementById('token').value.trim();
+    const apiKey     = document.getElementById('apiKey').value.trim();
+    const eventType  = document.getElementById('eventType').value;
+    const provider   = document.getElementById('provider').value;
+    const timestamp  = document.getElementById('timestamp').value.trim()
+                       || Math.floor(Date.now() / 1000).toString();
+
+    const minPayload = minifyPayload(document.getElementById('payload').value);
+    const message    = `${timestamp}.${minPayload}`;
+    const signature  = await computeHmac(apiKey, message);
+
+    document.getElementById('sigPreview').textContent = signature;
+
+    const bodyObj = { eventType, provider, payload: JSON.parse(minPayload) };
+    const bodyStr = JSON.stringify(bodyObj);
+
+    const headers = {
+      'Content-Type':      'application/json',
+      'X-Endpoint-Token':  token,
+      'X-Timestamp':       timestamp,
+      'X-Signature':       signature
+    };
+
+    const sentHtml = Object.entries(headers).map(([k, v]) =>
+      `<div><span class="key">${k}:</span> <span class="val">${v}</span></div>`
+    ).join('');
+    document.getElementById('sentHeaders').innerHTML = sentHtml;
+
+    const t0 = performance.now();
+    const res = await fetch(`${baseUrl}/api/WebHook`, {
+      method: 'POST', headers, body: bodyStr
+    });
+    const elapsed = Math.round(performance.now() - t0);
+
+    const text = await res.text();
+    let formatted = text;
+    try { formatted = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+
+    const badge     = document.getElementById('statusBadge');
+    badge.textContent = res.status;
+    badge.className   = `status-badge ${res.status < 300 ? 'status-2xx' : res.status < 500 ? 'status-4xx' : 'status-5xx'}`;
+
+    document.getElementById('statusText').textContent  = res.statusText;
+    document.getElementById('responseTime').textContent = `${elapsed} ms`;
+    document.getElementById('responseBody').textContent = formatted;
+
+    document.getElementById('responsePlaceholder').style.display = 'none';
+    document.getElementById('responseContent').style.display     = 'block';
+
+  } catch (err) {
+    document.getElementById('responsePlaceholder').style.display = 'none';
+    document.getElementById('responseContent').style.display     = 'block';
+    document.getElementById('statusBadge').textContent   = 'ERR';
+    document.getElementById('statusBadge').className     = 'status-badge status-5xx';
+    document.getElementById('statusText').textContent    = 'Network error';
+    document.getElementById('responseTime').textContent  = '';
+    document.getElementById('responseBody').textContent  = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send Request';
+  }
+}
+</script>
+</body>
+</html>

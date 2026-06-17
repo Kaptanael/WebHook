@@ -12,14 +12,19 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("MVPWebhookDB")
+        var webhookDb = configuration.GetConnectionString("MVPWebhookDB")
             ?? throw new InvalidOperationException("Connection string 'MVPWebhookDB' is not configured.");
 
-        services.AddSingleton<IDbConnectionFactory>(new SqlConnectionFactory(connectionString));
+        var mvpEventDb = configuration.GetConnectionString("MVPEventDB")
+            ?? throw new InvalidOperationException("Connection string 'MVPEventDB' is not configured.");
+
+        services.AddSingleton<IWebhookDbConnectionFactory>(new SqlConnectionFactory(webhookDb));
+        services.AddSingleton<IMvpEventDbConnectionFactory>(new SqlConnectionFactory(mvpEventDb));
 
         services.AddScoped<IWebHookConnectionRepository, WebHookConnectionRepository>();
         services.AddScoped<IWebhookEndpointRepository, WebhookEndpointRepository>();
         services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+        services.AddScoped<IMvpEventRepository, MvpEventRepository>();
 
         services.AddHttpClient<IWebhookDeliveryClient, HttpWebhookDeliveryClient>((sp, client) =>
         {

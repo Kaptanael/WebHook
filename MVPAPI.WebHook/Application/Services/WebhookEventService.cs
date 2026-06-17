@@ -1,3 +1,4 @@
+using AutoMapper;
 using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.Common.Exceptions;
 using MVPAPI.WebHook.Application.DTOs.Endpoints;
@@ -9,14 +10,17 @@ using MVPAPI.WebHook.Domain.Entities;
 using MVPAPI.WebHook.Domain.Enums;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace MVPAPI.WebHook.Application.Services;
 
 public class WebhookEventService(
     ITokenValidator tokenValidator,
+    IMapper mapper,
     IWebHookConnectionRepository connectionRepository,
     IWebhookEndpointRepository endpointRepository,
-    IWebhookEventRepository eventRepository) : IWebhookEventService
+    IWebhookEventRepository eventRepository,
+    IMvpEventRepository mvpEventRepository) : IWebhookEventService
 {
     private const int MaxAttempts = 5;
     private const int TimestampToleranceSeconds = 300;
@@ -51,12 +55,28 @@ public class WebhookEventService(
 
         var expected = ComputeHmac(decoded.ApiKey, $"{xTimestamp}.{rawPayload}");
         if (!CryptographicEquals(expected, xSignature))
-            return Result.Failure<EventResponse>("Invalid signature.");        
+            return Result.Failure<EventResponse>("Invalid signature.");
+
+        string? eventType = request.Payload.TryGetProperty("eventType", out var et) ? et.GetString() : null;
+        if (string.IsNullOrWhiteSpace(eventType))
+            return Result.Failure<EventResponse>("Payload must contain an 'eventType' property.");
+
+        using var doc = JsonDocument.Parse(rawPayload);
+        var payload = request.Payload.GetProperty("payload");
+
+        if (eventType == "event.create")
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var createEventPayload = JsonSerializer.Deserialize<CreateMVPEventPayload>(payload, options);
+
+            var eventToCreate = mapper.Map<MvpEvent>(createEventPayload);
+            await mvpEventRepository.AddAsync(eventToCreate);
+        }
 
         var webhookEvent = new WebhookEvent
         {
             WebhookId = Guid.NewGuid(),
-            Provider = request.Provider,
+            Provider = request.Client,
             EventType = request.EventType,
             Payload = rawPayload,
             Status = EventStatus.Pending,
