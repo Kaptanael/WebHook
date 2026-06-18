@@ -5,6 +5,7 @@ using MVPAPI.WebHook.Application.Services;
 using MVPAPI.WebHook.BackgroundServices;
 using MVPAPI.WebHook.Infrastructure;
 using MVPAPI.WebHook.Middleware;
+using MVPAPI.WebHook.OpenApi;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,7 +18,11 @@ if (builder.Environment.IsDevelopment())
         policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 }
 
-builder.Services.AddOpenApi();
+builder.Services.AddSingleton<XmlCommentsOperationTransformer>();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddOperationTransformer<XmlCommentsOperationTransformer>();
+});
 
 builder.Services.Configure<WebhookDispatchOptions>(
     builder.Configuration.GetSection(WebhookDispatchOptions.SectionName));
