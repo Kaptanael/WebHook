@@ -5,7 +5,7 @@ namespace MVPAPI.WebHook.Application.Interfaces.Services;
 
 public interface IWebhookEventService
 {
-    Task<Result<OutboxResponse>> PublishEventAsync(EventRequest request, string token, string signature, string timestamp, CancellationToken cancellationToken = default);
+    Task<Result<IReadOnlyList<EventResponse>>> PublishEventAsync(EventRequest request, string token, string signature, string timestamp, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<EventResponse>> PublishAsync(PublishEventRequest request, CancellationToken cancellationToken = default);    
     Task<EventResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<EventResponse>> GetDueForProcessingAsync(int batchSize, CancellationToken cancellationToken = default);

@@ -96,9 +96,9 @@ public class WebHookController(
     }
 
     [HttpPost]
-    [EndpointSummary("Accept an inbound webhook event")]
-    [EndpointDescription("Verifies the HMAC signature and timestamp, ensures the connection is active, then writes the event to the outbox for background fan-out and delivery.")]
-    [ProducesResponseType<OutboxResponse>(StatusCodes.Status202Accepted)]
+    [EndpointSummary("Receive and queue an inbound webhook event")]
+    [EndpointDescription("Verifies the HMAC signature and timestamp, ensures the connection is active, then fans out a WebhookEvent per matching endpoint for background delivery.")]
+    [ProducesResponseType<IReadOnlyList<EventResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Event(
         [FromBody] EventRequest request,
@@ -115,6 +115,6 @@ public class WebHookController(
         }
 
         logger.LogInformation("Webhook event accepted for endpoint {Token}, provider {Provider}, event type {EventType}.", token, request.Client, request.EventType);
-        return Accepted(result.Value);
+        return Ok(result.Value);
     }
 }

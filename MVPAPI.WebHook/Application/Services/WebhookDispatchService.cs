@@ -63,6 +63,18 @@ public class WebhookDispatchService(
 
     private async Task<DeliveryResult> DeliverAsync(WebhookEvent webhookEvent, CancellationToken cancellationToken)
     {
+        if(webhookEvent.EventType == "event.door.manual")
+        {
+            var delivery = new WebhookDelivery(
+            webhookEvent.Id,
+            endpoint.Endpoint,
+            webhookEvent.EventType,
+            webhookEvent.Payload,
+            endpoint.EndPointToken);
+
+            return await deliveryClient.DeliverAsync(delivery, cancellationToken);
+        }
+
         var endpoint = await endpointRepository.GetByIdAsync(webhookEvent.WebhookId, cancellationToken);
         if (endpoint is null)
         {

@@ -26,10 +26,6 @@ public record EventRequest(
     JsonElement Payload,
     string Client);
 
-public record OutboxResponse(
-    Guid MessageId,
-    string EventType,
-    DateTime CreatedAtUtc);
 
 
 

@@ -246,14 +246,16 @@
         <div>
           <label>Event Type</label>
           <select id="eventType">
-            <option value="event.create">event.create</option>
-            <option value="event.acknowledge">event.acknowledge</option>
-            <option value="event.operatorresponse">event.operatorresponse</option>
+              <option value="event.create">event.create</option>
+              <option value="event.acknowledge">event.acknowledge</option>
+              <option value="event.operatorresponse">event.operatorresponse</option>
+              <option value="event.door.manual">event.door.manual</option>
+              <option value="event.relay.manual">event.relay.manual</option>
           </select>
         </div>
         <div>
-          <label>Provider</label>
-          <select id="provider">
+        <label>Client</label>
+          <select id="client">
             <option value="MVP">MVP</option>
             <option value="ThirdParty">ThirdParty</option>
           </select>
@@ -262,23 +264,23 @@
 
       <label>Payload (JSON)</label>
       <textarea id="payload" rows="12">{
-  "priority": 1,
-  "category": 2,
-  "panelId": 101,
-  "eventDate": "2026-06-17T08:30:00Z",
-  "deviceId": 205,
-  "status": 1,
-  "facilityNo": 1,
-  "badge": 123456,
-  "class": "Access",
-  "description": "Door opened",
-  "name": "Main Entrance",
-  "hasPhoto": false,
-  "hasVideo": false,
-  "responseRequired": false,
-  "sequenceNoFromLock": 0,
-  "recordCount": 1
-}</textarea>
+          "priority": 1,
+          "category": 2,
+          "panelId": 101,
+          "eventDate": "2026-06-17T08:30:00Z",
+          "deviceId": 205,
+          "status": 1,
+          "facilityNo": 1,
+          "badge": 123456,
+          "class": "Access",
+          "description": "Door opened",
+          "name": "Main Entrance",
+          "hasPhoto": false,
+          "hasVideo": false,
+          "responseRequired": false,
+          "sequenceNoFromLock": 0,
+          "recordCount": 1
+        }</textarea>
 
       <label>X-Signature <span class="badge badge-auto">auto-computed</span></label>
       <div class="sig-preview" id="sigPreview">— will appear here before send —</div>
@@ -372,7 +374,7 @@ async function send() {
     const token      = document.getElementById('token').value.trim();
     const apiKey     = document.getElementById('apiKey').value.trim();
     const eventType  = document.getElementById('eventType').value;
-    const provider   = document.getElementById('provider').value;
+    const client   = document.getElementById('client').value;
     const timestamp  = document.getElementById('timestamp').value.trim()
                        || Math.floor(Date.now() / 1000).toString();
 
@@ -382,7 +384,7 @@ async function send() {
 
     document.getElementById('sigPreview').textContent = signature;
 
-    const bodyObj = { eventType, provider, payload: JSON.parse(minPayload) };
+    const bodyObj = { eventType, client, payload: JSON.parse(minPayload) };
     const bodyStr = JSON.stringify(bodyObj);
 
     const headers = {
