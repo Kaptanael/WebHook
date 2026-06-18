@@ -6,9 +6,14 @@ namespace MVPAPI.WebHook.Controllers;
 
 [ApiController]
 [Route("api/webhook/events")]
+[Produces("application/json")]
 public class WebhookEventsController(IWebhookEventService eventService) : ControllerBase
 {
     [HttpPost]
+    [EndpointSummary("Dispatch events to all subscribed endpoints")]
+    [EndpointDescription("Looks up the connection by client token, then queues one pending event per registered endpoint for background delivery.")]
+    [ProducesResponseType<IReadOnlyList<EventResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Publish([FromBody] PublishEventRequest request, CancellationToken cancellationToken)
     {
         var events = await eventService.PublishAsync(request, cancellationToken);
