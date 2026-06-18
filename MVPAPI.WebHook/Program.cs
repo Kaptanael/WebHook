@@ -60,6 +60,8 @@ if (app.Environment.IsDevelopment())
     app.UseCors("DevCors");
 }
 
+app.UseStaticFiles();
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (!app.Environment.IsDevelopment())
