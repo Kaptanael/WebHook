@@ -65,11 +65,39 @@ public class WebhookEventService(
         if (!CryptographicEquals(expected, signature))
             return Result.Failure<IReadOnlyList<EventResponse>>("Invalid signature.");
 
-        await EnsureEndpointAsync(request.EventType, connection.CompanyId, cancellationToken);
+        // If a route URL is configured for this event type, ensure the endpoint exists in the DB.
+        // This auto-registers the internal API (e.g. event.door.manual → http://localhost:7101/api/ManualDoor/Execute)
+        // on first use so subsequent lookups and retries work through the normal delivery pipeline.
+        if (routeOptions.Value.Routes.TryGetValue(request.EventType, out var internalUrl))
+        {
+            var existing = await endpointRepository.GetActiveByCompanyAndEventTypeAsync(
+                connection.CompanyId, request.EventType, cancellationToken);
+
+            if (existing.Count == 0)
+            {
+                try
+                {
+                    await endpointRepository.AddAsync(new WebhookEndpoint
+                    {
+                        EndPointToken     = TokenGenerator.Generate(),
+                        Endpoint          = internalUrl,
+                        CompanyId         = connection.CompanyId,
+                        TriggerConfigJson = JsonSerializer.Serialize(new { triggerType = request.EventType, companyId = connection.CompanyId }),
+                        IsActive          = true,
+                        ActionDataSchema  = "{}"
+                    }, cancellationToken);
+                }
+                catch
+                {
+                    // A concurrent request already created the endpoint — safe to ignore.
+                }
+            }
+        }
 
         var endpoints = await endpointRepository.GetActiveByCompanyAndEventTypeAsync(
             connection.CompanyId, request.EventType, cancellationToken);
 
+        // No endpoint in DB and no route URL configured — nothing to dispatch.
         if (endpoints.Count == 0)
             return Result.Success<IReadOnlyList<EventResponse>>([]);
 
@@ -189,35 +217,6 @@ public class WebhookEventService(
 
         await eventRepository.UpdateAsync(webhookEvent, cancellationToken);
         return true;
-    }
-
-    private async Task EnsureEndpointAsync(string eventType, int companyId, CancellationToken cancellationToken)
-    {
-        if (!routeOptions.Value.Routes.TryGetValue(eventType, out var internalUrl))
-            return;
-
-        var existing = await endpointRepository.GetActiveByCompanyAndEventTypeAsync(companyId, eventType, cancellationToken);
-        if (existing.Count > 0)
-            return;
-
-        var triggerConfig = JsonSerializer.Serialize(new { triggerType = eventType, companyId });
-
-        try
-        {
-            await endpointRepository.AddAsync(new WebhookEndpoint
-            {
-                EndPointToken    = TokenGenerator.Generate(),
-                Endpoint         = internalUrl,
-                CompanyId        = companyId,
-                TriggerConfigJson = triggerConfig,
-                IsActive         = true,
-                ActionDataSchema = "{}"
-            }, cancellationToken);
-        }
-        catch
-        {
-            // A concurrent request already created the endpoint — safe to ignore.
-        }
     }
 
     private static string ComputeHmac(string secret, string message)
