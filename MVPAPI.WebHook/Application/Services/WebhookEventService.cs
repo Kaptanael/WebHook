@@ -210,21 +210,23 @@ public class WebhookEventService(
         IReadOnlyList<WebhookEndpoint> endpoints, EventRequest request, string rawPayload,
         CancellationToken cancellationToken)
     {
+        var nowUtc = DateTime.UtcNow;
         var events = new List<WebhookEvent>(endpoints.Count);
         foreach (var endpoint in endpoints)
         {
             var webhookEvent = new WebhookEvent
             {
-                WebhookId = endpoint.Id,
-                Provider = request.Client,
-                EventType = request.EventType,
-                Payload = rawPayload,
-                Status = EventStatus.Pending,
-                ReceivedAtUtc = DateTime.UtcNow,
-                NextAttemptAtUtc = DateTime.UtcNow
+                WebhookId        = endpoint.Id,
+                Provider         = request.Client,
+                EventType        = request.EventType,
+                Payload          = rawPayload,
+                Status           = EventStatus.Pending,
+                ReceivedAtUtc    = nowUtc,
+                NextAttemptAtUtc = nowUtc,
+                IdempotencyKey   = Guid.NewGuid().ToString()
             };
-            events.Add(webhookEvent);
             await eventRepository.AddAsync(webhookEvent, cancellationToken);
+            events.Add(webhookEvent);
         }
         return events;
     }

@@ -374,8 +374,7 @@ async function send() {
     const apiKey     = document.getElementById('apiKey').value.trim();
     const eventType  = document.getElementById('eventType').value;
     const client   = document.getElementById('client').value;
-    const timestamp  = document.getElementById('timestamp').value.trim()
-                       || Math.floor(Date.now() / 1000).toString();
+    const timestamp  = document.getElementById('timestamp').value.trim() || Math.floor(Date.now() / 1000).toString();
 
     const minPayload = minifyPayload(document.getElementById('payload').value);
     const message    = `${timestamp}.${minPayload}`;

@@ -10,7 +10,9 @@ public class WebhookDispatchService(
     IWebhookEndpointRepository endpointRepository,
     IWebHookConnectionRepository connectionRepository,
     IWebhookEventService eventService,
-    IWebhookDeliveryClient deliveryClient) : IWebhookDispatchService
+    IWebhookDeliveryClient deliveryClient,
+    ITokenDecoder tokenDecoder,
+    IAccountApiClient accountApiClient) : IWebhookDispatchService
 {
     public async Task<DispatchSummary> DispatchDueEventsAsync(int batchSize, CancellationToken cancellationToken = default)
     {
@@ -81,6 +83,33 @@ public class WebhookDispatchService(
             connection.MVPApiToken,
             connection.MVPApiRefreshToken);
 
-        return await deliveryClient.DeliverAsync(delivery, cancellationToken);
+        var result = await deliveryClient.DeliverAsync(delivery, cancellationToken);
+
+        if (!result.IsUnauthorized)
+            return result;
+
+        // Bearer token expired — refresh and retry once.
+        var decodeResult = tokenDecoder.Decode(endpoint.EndPointToken);
+        if (!decodeResult.IsSuccess)
+            return DeliveryResult.Fail($"Token refresh aborted — could not decode endpoint token: {decodeResult.Error}");
+
+        var decoded = decodeResult.Value!;
+        var refreshResult = await accountApiClient.GetRefreshTokenAsync(
+            apiKey: decoded.ApiKey,
+            clientId: decoded.ClientId,
+            clientSecret: decoded.ClientSecret,
+            refreshToken: connection.MVPApiRefreshToken,
+            ct: cancellationToken);
+
+        if (!refreshResult.IsSuccess)
+            return DeliveryResult.Fail($"Token refresh failed: {refreshResult.Error}");
+
+        var newToken = refreshResult.Value!;
+        connection.MVPApiToken = newToken.Token;
+        connection.MVPApiRefreshToken = newToken.RefreshToken;
+        connection.MVPApiExpiresIn = newToken.ExpiresIn;
+        await connectionRepository.UpdateAsync(connection, cancellationToken);
+
+        return await deliveryClient.DeliverAsync(delivery with { MVPApiToken = newToken.Token }, cancellationToken);
     }
 }

@@ -1,5 +1,6 @@
 using MVPAPI.WebHook.Application.Interfaces;
 using MVPAPI.WebHook.Application.Interfaces.Services;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -33,9 +34,10 @@ public class HttpWebhookDeliveryClient(
             using var response = await httpClient.SendAsync(request, cancellationToken);
 
             if (response.IsSuccessStatusCode)
-            {
                 return DeliveryResult.Ok();
-            }
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                return DeliveryResult.Unauthorized();
 
             return DeliveryResult.Fail($"Target responded with {(int)response.StatusCode} {response.ReasonPhrase}.");
         }
