@@ -10,9 +10,9 @@ public class OutboxMessageRepository(IWebhookDbConnectionFactory connectionFacto
     public async Task<Guid> AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
         const string sql = """
-            INSERT INTO OutboxMessages (EventType, Payload, Provider, CreatedAtUtc)
+            INSERT INTO OutboxMessages (EventType, Payload, Provider, CompanyId, CreatedAtUtc)
             OUTPUT inserted.Id
-            VALUES (@EventType, @Payload, @Provider, @CreatedAtUtc)
+            VALUES (@EventType, @Payload, @Provider, @CompanyId, @CreatedAtUtc)
             """;
 
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
@@ -37,7 +37,7 @@ public class OutboxMessageRepository(IWebhookDbConnectionFactory connectionFacto
             UPDATE pending
             SET Attempts = Attempts + 1
             OUTPUT inserted.Id, inserted.EventType, inserted.Payload, inserted.Provider,
-                   inserted.Attempts, inserted.Error, inserted.CreatedAtUtc, inserted.ProcessedAtUtc
+                   inserted.CompanyId, inserted.Attempts, inserted.Error, inserted.CreatedAtUtc, inserted.ProcessedAtUtc
             """;
 
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);

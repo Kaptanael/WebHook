@@ -54,7 +54,7 @@ public class OutboxProcessorService(
         {
             try
             {
-                var endpoints = await endpointRepo.GetActiveByEventTypeAsync(message.EventType, cancellationToken);
+                var endpoints = await endpointRepo.GetActiveByCompanyAndEventTypeAsync(message.CompanyId, message.EventType, cancellationToken);
 
                 foreach (var endpoint in endpoints)
                 {

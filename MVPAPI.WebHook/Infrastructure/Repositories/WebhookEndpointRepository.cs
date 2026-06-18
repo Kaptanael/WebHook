@@ -77,6 +77,24 @@ public class WebhookEndpointRepository(IWebhookDbConnectionFactory connectionFac
         return affected > 0;
     }
 
+    public async Task<IReadOnlyList<WebhookEndpoint>> GetActiveByCompanyAndEventTypeAsync(int companyId, string eventType, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        var endpoints = await connection.QueryAsync<WebhookEndpoint>(new CommandDefinition(
+            $"{SelectColumns} WHERE IsActive = 1 AND CompanyId = @CompanyId AND JSON_VALUE(TriggerConfigJson, '$.triggerType') = @EventType",
+            new { CompanyId = companyId, EventType = eventType }, cancellationToken: cancellationToken));
+        return endpoints.ToList();
+    }
+
+    public async Task<IReadOnlyList<WebhookEndpoint>> GetActiveByEventTypeAsync(string eventType, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        var endpoints = await connection.QueryAsync<WebhookEndpoint>(new CommandDefinition(
+            $"{SelectColumns} WHERE IsActive = 1 AND JSON_VALUE(TriggerConfigJson, '$.triggerType') = @EventType",
+            new { EventType = eventType }, cancellationToken: cancellationToken));
+        return endpoints.ToList();
+    }
+
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);

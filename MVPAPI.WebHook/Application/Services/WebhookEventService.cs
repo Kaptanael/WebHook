@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Options;
 using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.Common.Exceptions;
 using MVPAPI.WebHook.Application.DTOs.Events;
@@ -8,6 +9,7 @@ using MVPAPI.WebHook.Domain.Entities;
 using MVPAPI.WebHook.Domain.Enums;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace MVPAPI.WebHook.Application.Services;
 
@@ -15,6 +17,7 @@ public class WebhookEventService(
     IMapper mapper,
     ITokenValidator tokenValidator,
     IWebHookConnectionManager connectionManager,
+    IOptions<WebhookRouteOptions> routeOptions,
     IWebHookConnectionRepository connectionRepository,
     IWebhookEndpointRepository endpointRepository,
     IWebhookEventRepository eventRepository,
@@ -47,6 +50,8 @@ public class WebhookEventService(
         if (!connectionResult.IsSuccess)
             return Result.Failure<OutboxResponse>(connectionResult.Error!);
 
+        var connection = connectionResult.Value!;
+
         var decodeResult = tokenValidator.DecodeToken(token);
         if (!decodeResult.IsSuccess)
             return Result.Failure<OutboxResponse>(decodeResult.Error!);
@@ -61,11 +66,14 @@ public class WebhookEventService(
         if (!CryptographicEquals(expected, signature))
             return Result.Failure<OutboxResponse>("Invalid signature.");
 
+        await EnsureEndpointAsync(request.EventType, connection.CompanyId, cancellationToken);
+
         var message = new OutboxMessage
         {
             EventType    = request.EventType,
             Payload      = rawPayload,
             Provider     = request.Client,
+            CompanyId    = connection.CompanyId,
             CreatedAtUtc = DateTime.UtcNow
         };
         await outboxRepository.AddAsync(message, cancellationToken);
@@ -169,6 +177,35 @@ public class WebhookEventService(
 
         await eventRepository.UpdateAsync(webhookEvent, cancellationToken);
         return true;
+    }
+
+    private async Task EnsureEndpointAsync(string eventType, int companyId, CancellationToken cancellationToken)
+    {
+        if (!routeOptions.Value.Routes.TryGetValue(eventType, out var internalUrl))
+            return;
+
+        var existing = await endpointRepository.GetActiveByCompanyAndEventTypeAsync(companyId, eventType, cancellationToken);
+        if (existing.Count > 0)
+            return;
+
+        var triggerConfig = JsonSerializer.Serialize(new { triggerType = eventType, companyId });
+
+        try
+        {
+            await endpointRepository.AddAsync(new WebhookEndpoint
+            {
+                EndPointToken    = TokenGenerator.Generate(),
+                Endpoint         = internalUrl,
+                CompanyId        = companyId,
+                TriggerConfigJson = triggerConfig,
+                IsActive         = true,
+                ActionDataSchema = "{}"
+            }, cancellationToken);
+        }
+        catch
+        {
+            // A concurrent request already created the endpoint — safe to ignore.
+        }
     }
 
     private static string ComputeHmac(string secret, string message)

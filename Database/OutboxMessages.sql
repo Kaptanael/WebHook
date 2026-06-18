@@ -10,6 +10,7 @@ CREATE TABLE [dbo].[OutboxMessages](
 	[EventType]      [nvarchar](100)    NOT NULL,
 	[Payload]        [nvarchar](max)    NOT NULL,
 	[Provider]       [nvarchar](100)    NULL,
+	[CompanyId]      [int]              NOT NULL CONSTRAINT [DF_OutboxMessages_CompanyId] DEFAULT ((0)),
 	[Attempts]       [int]              NOT NULL CONSTRAINT [DF_OutboxMessages_Attempts] DEFAULT ((0)),
 	[Error]          [nvarchar](max)    NULL,
 	[CreatedAtUtc]   [datetime2](7)     NOT NULL CONSTRAINT [DF_OutboxMessages_CreatedAtUtc] DEFAULT (GETUTCDATE()),

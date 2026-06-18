@@ -26,6 +26,8 @@ builder.Services.AddOpenApi(options =>
 
 builder.Services.Configure<WebhookDispatchOptions>(
     builder.Configuration.GetSection(WebhookDispatchOptions.SectionName));
+builder.Services.Configure<WebhookRouteOptions>(
+    builder.Configuration.GetSection(WebhookRouteOptions.SectionName));
 builder.Services.Configure<MVPApiOptions>(
     builder.Configuration.GetSection(MVPApiOptions.SectionName));
 
