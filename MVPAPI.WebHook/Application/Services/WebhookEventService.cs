@@ -1,49 +1,50 @@
 using AutoMapper;
 using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.Common.Exceptions;
-using MVPAPI.WebHook.Application.DTOs.Endpoints;
 using MVPAPI.WebHook.Application.DTOs.Events;
-using MVPAPI.WebHook.Application.Interfaces;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 using MVPAPI.WebHook.Domain.Entities;
 using MVPAPI.WebHook.Domain.Enums;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 
 namespace MVPAPI.WebHook.Application.Services;
 
 public class WebhookEventService(
-    ITokenValidator tokenValidator,
     IMapper mapper,
+    ITokenValidator tokenValidator,
+    IWebHookConnectionManager connectionManager,
     IWebHookConnectionRepository connectionRepository,
     IWebhookEndpointRepository endpointRepository,
-    IWebhookEventRepository eventRepository,
-    IMvpEventRepository mvpEventRepository) : IWebhookEventService
+    IWebhookEventRepository eventRepository) : IWebhookEventService
 {
     private const int MaxAttempts = 5;
-    private const int TimestampToleranceSeconds = 300;
+    private const int TimestampToleranceSeconds = 5;
 
     public async Task<Result<EventResponse>> PublishEventAsync(
         EventRequest request,
-        string? token,
-        string? xSignature,
-        string? xTimestamp,
+        string token,
+        string signature,
+        string timestamp,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(xTimestamp))
+        if (string.IsNullOrWhiteSpace(timestamp))
             return Result.Failure<EventResponse>("Missing X-Timestamp header.");
 
-        if (!long.TryParse(xTimestamp, out var ts) ||
+        if (!long.TryParse(timestamp, out var ts) ||
             Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts) > TimestampToleranceSeconds)
             return Result.Failure<EventResponse>("Request timestamp is invalid or expired.");
 
-        if (string.IsNullOrWhiteSpace(xSignature))
+        if (string.IsNullOrWhiteSpace(signature))
             return Result.Failure<EventResponse>("Missing X-Signature header.");
 
         if (string.IsNullOrWhiteSpace(token))
             return Result.Failure<EventResponse>("Missing X-Endpoint-Token header.");
+
+        var connectionResult = await connectionManager.EnsureConnectionAsync(token, cancellationToken);
+        if (!connectionResult.IsSuccess)
+            return Result.Failure<EventResponse>(connectionResult.Error!);
 
         var decodeResult = tokenValidator.DecodeToken(token);
         if (!decodeResult.IsSuccess)
@@ -52,26 +53,12 @@ public class WebhookEventService(
         var decoded = decodeResult.Value!;
 
         var rawPayload = request.Payload.GetRawText();
+        if (string.IsNullOrWhiteSpace(rawPayload))
+            return Result.Failure<EventResponse>("Payload cannot be empty.");
 
-        var expected = ComputeHmac(decoded.ApiKey, $"{xTimestamp}.{rawPayload}");
-        if (!CryptographicEquals(expected, xSignature))
+        var expected = ComputeHmac(decoded.ApiKey, $"{timestamp}.{rawPayload}");
+        if (!CryptographicEquals(expected, signature))
             return Result.Failure<EventResponse>("Invalid signature.");
-
-        string? eventType = request.Payload.TryGetProperty("eventType", out var et) ? et.GetString() : null;
-        if (string.IsNullOrWhiteSpace(eventType))
-            return Result.Failure<EventResponse>("Payload must contain an 'eventType' property.");
-
-        using var doc = JsonDocument.Parse(rawPayload);
-        var payload = request.Payload.GetProperty("payload");
-
-        if (eventType == "event.create")
-        {
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var createEventPayload = JsonSerializer.Deserialize<CreateMVPEventPayload>(payload, options);
-
-            var eventToCreate = mapper.Map<MvpEvent>(createEventPayload);
-            await mvpEventRepository.AddAsync(eventToCreate);
-        }
 
         var webhookEvent = new WebhookEvent
         {
@@ -83,8 +70,9 @@ public class WebhookEventService(
             ReceivedAtUtc = DateTime.UtcNow,
             NextAttemptAtUtc = DateTime.UtcNow
         };
+
         await eventRepository.AddAsync(webhookEvent, cancellationToken);
-        return Result.Success<EventResponse>(ToResponse(webhookEvent));
+        return Result.Success(mapper.Map<EventResponse>(webhookEvent));
     }
 
     public async Task<IReadOnlyList<EventResponse>> PublishAsync(PublishEventRequest request, CancellationToken cancellationToken = default)
@@ -115,19 +103,19 @@ public class WebhookEventService(
             await eventRepository.AddAsync(webhookEvent, cancellationToken);
         }
 
-        return events.Select(ToResponse).ToList();
+        return mapper.Map<List<EventResponse>>(events);
     }
 
     public async Task<EventResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var webhookEvent = await eventRepository.GetByIdAsync(id, cancellationToken);
-        return webhookEvent is null ? null : ToResponse(webhookEvent);
+        return webhookEvent is null ? null : mapper.Map<EventResponse>(webhookEvent);
     }
 
     public async Task<IReadOnlyList<EventResponse>> GetDueForProcessingAsync(int batchSize, CancellationToken cancellationToken = default)
     {
         var events = await eventRepository.GetDueForProcessingAsync(batchSize, DateTime.UtcNow, cancellationToken);
-        return events.Select(ToResponse).ToList();
+        return mapper.Map<List<EventResponse>>(events);
     }
 
     public async Task<bool> MarkProcessingAsync(Guid id, CancellationToken cancellationToken = default)
@@ -197,16 +185,4 @@ public class WebhookEventService(
         => CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(a),
             Encoding.UTF8.GetBytes(b));
-
-    private static EventResponse ToResponse(WebhookEvent webhookEvent) =>
-        new(webhookEvent.Id,
-            webhookEvent.WebhookId,
-            webhookEvent.Provider,
-            webhookEvent.EventType,
-            webhookEvent.Status,
-            webhookEvent.Attempts,
-            webhookEvent.LastError,
-            webhookEvent.ReceivedAtUtc,
-            webhookEvent.NextAttemptAtUtc,
-            webhookEvent.ProcessedAtUtc);
 }

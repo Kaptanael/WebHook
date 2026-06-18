@@ -80,9 +80,9 @@ public class WebHookController(
     [HttpPost]
     public async Task<IActionResult> Event(
         [FromBody] EventRequest request,
-        [FromHeader(Name = "X-Endpoint-Token")] string? token,
-        [FromHeader(Name = "X-Signature")] string? xSignature,
-        [FromHeader(Name = "X-Timestamp")] string? xTimestamp,
+        [FromHeader(Name = "X-Endpoint-Token")] string token,
+        [FromHeader(Name = "X-Signature")] string xSignature,
+        [FromHeader(Name = "X-Timestamp")] string xTimestamp,
         CancellationToken cancellationToken)
     {
         var result = await eventService.PublishEventAsync(request, token, xSignature, xTimestamp, cancellationToken);

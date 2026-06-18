@@ -1,6 +1,5 @@
-using System.Text;
-using Microsoft.Extensions.Logging;
 using MVPAPI.WebHook.Application.Interfaces;
+using System.Text;
 
 namespace MVPAPI.WebHook.Infrastructure.Delivery;
 

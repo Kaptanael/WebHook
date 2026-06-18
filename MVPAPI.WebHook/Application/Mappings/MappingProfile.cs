@@ -10,35 +10,6 @@ public class MappingProfile : Profile
 {
     public MappingProfile()
     {
-        CreateMap<MvpEvent, MvpEventResponse>()
-            .ForCtorParam(nameof(MvpEventResponse.Id), o => o.MapFrom(s => s.Seqno))
-            .ForCtorParam(nameof(MvpEventResponse.Category), o => o.MapFrom(s => s.Cat))
-            .ForCtorParam(nameof(MvpEventResponse.PanelNo), o => o.MapFrom(s => s.PnlNo))
-            .ForCtorParam(nameof(MvpEventResponse.EventDate), o => o.MapFrom(s => s.EDate))
-            .ForCtorParam(nameof(MvpEventResponse.FacilityNo), o => o.MapFrom(s => s.Facno))
-            .ForCtorParam(nameof(MvpEventResponse.Archive), o => o.MapFrom(s => s.Arch))
-            .ForCtorParam(nameof(MvpEventResponse.AcknowledgeOperator), o => o.MapFrom(s => s.AckOpr))
-            .ForCtorParam(nameof(MvpEventResponse.AcknowledgeTimestamp), o => o.MapFrom(s => s.AckTStamp))
-            .ForCtorParam(nameof(MvpEventResponse.ResponseRequired), o => o.MapFrom(s => s.RespReq))
-            .ForCtorParam(nameof(MvpEventResponse.CaObjectId), o => o.MapFrom(s => s.CaObjectID))
-            .ForCtorParam(nameof(MvpEventResponse.UtcOffset), o => o.MapFrom(s => s.UTCOffset));
-
-        CreateMap<CreateMVPEventPayload, MvpEvent>()
-            .ForMember(dest => dest.Seqno,         opt => opt.Ignore())
-            .ForMember(dest => dest.CompanyId,     opt => opt.Ignore())
-            .ForMember(dest => dest.Cat,           opt => opt.MapFrom(src => src.Category))
-            .ForMember(dest => dest.PnlNo,         opt => opt.MapFrom(src => src.PanelId))
-            .ForMember(dest => dest.EDate,         opt => opt.MapFrom(src => src.EventDate))
-            .ForMember(dest => dest.DeviceNo,      opt => opt.MapFrom(src => src.DeviceId))
-            .ForMember(dest => dest.Facno,         opt => opt.MapFrom(src => src.FacilityNo))
-            .ForMember(dest => dest.Arch,          opt => opt.MapFrom(src => src.Archive))
-            .ForMember(dest => dest.AckOpr,        opt => opt.MapFrom(src => src.AcknowledgeOperator))
-            .ForMember(dest => dest.AckTStamp,     opt => opt.MapFrom(src => src.AcknowledgeTimeStamp))
-            .ForMember(dest => dest.RespReq,       opt => opt.MapFrom(src => src.ResponseRequired))
-            .ForMember(dest => dest.SeqNoFromLock, opt => opt.MapFrom(src => src.SequenceNoFromLock))
-            .ForMember(dest => dest.CaObjectID,    opt => opt.Ignore())
-            .ForMember(dest => dest.UTCOffset,     opt => opt.Ignore());
-
         CreateMap<WebhookEvent, EventResponse>()
             .ForCtorParam(nameof(EventResponse.Id), o => o.MapFrom(s => s.Id))
             .ForCtorParam(nameof(EventResponse.WebhookId), o => o.MapFrom(s => s.WebhookId))
