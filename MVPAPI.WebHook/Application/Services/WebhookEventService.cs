@@ -17,12 +17,13 @@ public class WebhookEventService(
     IWebHookConnectionManager connectionManager,
     IWebHookConnectionRepository connectionRepository,
     IWebhookEndpointRepository endpointRepository,
-    IWebhookEventRepository eventRepository) : IWebhookEventService
+    IWebhookEventRepository eventRepository,
+    IOutboxMessageRepository outboxRepository) : IWebhookEventService
 {
     private const int MaxAttempts = 5;
-    private const int TimestampToleranceSeconds = 5;
+    private const int TimestampToleranceSeconds = 300;
 
-    public async Task<Result<EventResponse>> PublishEventAsync(
+    public async Task<Result<OutboxResponse>> PublishEventAsync(
         EventRequest request,
         string token,
         string signature,
@@ -30,49 +31,46 @@ public class WebhookEventService(
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(timestamp))
-            return Result.Failure<EventResponse>("Missing X-Timestamp header.");
+            return Result.Failure<OutboxResponse>("Missing X-Timestamp header.");
 
         if (!long.TryParse(timestamp, out var ts) ||
             Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts) > TimestampToleranceSeconds)
-            return Result.Failure<EventResponse>("Request timestamp is invalid or expired.");
+            return Result.Failure<OutboxResponse>("Request timestamp is invalid or expired.");
 
         if (string.IsNullOrWhiteSpace(signature))
-            return Result.Failure<EventResponse>("Missing X-Signature header.");
+            return Result.Failure<OutboxResponse>("Missing X-Signature header.");
 
         if (string.IsNullOrWhiteSpace(token))
-            return Result.Failure<EventResponse>("Missing X-Endpoint-Token header.");
+            return Result.Failure<OutboxResponse>("Missing X-Endpoint-Token header.");
 
         var connectionResult = await connectionManager.EnsureConnectionAsync(token, cancellationToken);
         if (!connectionResult.IsSuccess)
-            return Result.Failure<EventResponse>(connectionResult.Error!);
+            return Result.Failure<OutboxResponse>(connectionResult.Error!);
 
         var decodeResult = tokenValidator.DecodeToken(token);
         if (!decodeResult.IsSuccess)
-            return Result.Failure<EventResponse>(decodeResult.Error!);
+            return Result.Failure<OutboxResponse>(decodeResult.Error!);
 
         var decoded = decodeResult.Value!;
 
         var rawPayload = request.Payload.GetRawText();
         if (string.IsNullOrWhiteSpace(rawPayload))
-            return Result.Failure<EventResponse>("Payload cannot be empty.");
+            return Result.Failure<OutboxResponse>("Payload cannot be empty.");
 
         var expected = ComputeHmac(decoded.ApiKey, $"{timestamp}.{rawPayload}");
         if (!CryptographicEquals(expected, signature))
-            return Result.Failure<EventResponse>("Invalid signature.");
+            return Result.Failure<OutboxResponse>("Invalid signature.");
 
-        var webhookEvent = new WebhookEvent
+        var message = new OutboxMessage
         {
-            WebhookId = Guid.NewGuid(),
-            Provider = request.Client,
-            EventType = request.EventType,
-            Payload = rawPayload,
-            Status = EventStatus.Pending,
-            ReceivedAtUtc = DateTime.UtcNow,
-            NextAttemptAtUtc = DateTime.UtcNow
+            EventType    = request.EventType,
+            Payload      = rawPayload,
+            Provider     = request.Client,
+            CreatedAtUtc = DateTime.UtcNow
         };
+        await outboxRepository.AddAsync(message, cancellationToken);
 
-        await eventRepository.AddAsync(webhookEvent, cancellationToken);
-        return Result.Success(mapper.Map<EventResponse>(webhookEvent));
+        return Result.Success(new OutboxResponse(message.Id, message.EventType, message.CreatedAtUtc));
     }
 
     public async Task<IReadOnlyList<EventResponse>> PublishAsync(PublishEventRequest request, CancellationToken cancellationToken = default)

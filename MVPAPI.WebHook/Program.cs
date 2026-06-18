@@ -33,6 +33,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddHostedService<WebhookDispatcherService>();
+builder.Services.AddHostedService<OutboxProcessorService>();
 
 builder.Services.AddHttpClient<IAccountApiClient, AccountApiClient>()
     .ConfigurePrimaryHttpMessageHandler(() =>

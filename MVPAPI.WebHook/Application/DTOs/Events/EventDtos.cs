@@ -21,23 +21,15 @@ public record EventResponse(
     DateTime? NextAttemptAtUtc,
     DateTime? ProcessedAtUtc);
 
-public record EventRequest(    
+public record EventRequest(
     string EventType,
     JsonElement Payload,
     string Client);
 
-public class OtherEventRequestPayload
-{
-    public DateTime? EventUtcTime { get; set; }
+public record OutboxResponse(
+    Guid MessageId,
+    string EventType,
+    DateTime CreatedAtUtc);
 
-    public int? UtcOffset { get; set; }
 
-    public string DeviceId { get; set; } = null!;
-
-    public string EventClass { get; set; } = null!;
-
-    public string? EventDescription { get; set; }
-
-    public string? DeviceName { get; set; } = null!;
-}
 

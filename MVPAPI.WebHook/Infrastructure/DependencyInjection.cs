@@ -23,7 +23,8 @@ public static class DependencyInjection
 
         services.AddScoped<IWebHookConnectionRepository, WebHookConnectionRepository>();
         services.AddScoped<IWebhookEndpointRepository, WebhookEndpointRepository>();
-        services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();        
+        services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+        services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
 
         services.AddHttpClient<IWebhookDeliveryClient, HttpWebhookDeliveryClient>((sp, client) =>
         {
