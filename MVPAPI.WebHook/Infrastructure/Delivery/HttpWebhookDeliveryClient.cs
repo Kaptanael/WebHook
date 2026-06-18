@@ -1,4 +1,5 @@
 using MVPAPI.WebHook.Application.Interfaces;
+using MVPAPI.WebHook.Application.Interfaces.Services;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -6,18 +7,28 @@ namespace MVPAPI.WebHook.Infrastructure.Delivery;
 
 public class HttpWebhookDeliveryClient(
     HttpClient httpClient,
+    ITokenDecoder tokenDecoder,
     ILogger<HttpWebhookDeliveryClient> logger) : IWebhookDeliveryClient
 {
     public async Task<DeliveryResult> DeliverAsync(WebhookDelivery delivery, CancellationToken cancellationToken = default)
     {
         try
         {
+            var tokenDecoderResult = tokenDecoder.Decode(delivery.EndpointToken);
+            if (!tokenDecoderResult.IsSuccess)
+            {
+                return DeliveryResult.Fail($"Failed to decode endpoint token: {tokenDecoderResult.Error}");
+            }
+
+            var apiKey = tokenDecoderResult.Value!.ApiKey;
+
             using var request = new HttpRequestMessage(HttpMethod.Post, delivery.TargetUrl)
             {
                 Content = new StringContent(delivery.Payload, Encoding.UTF8, "application/json")
-            };
+            };            
+
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", delivery.MVPApiToken);
-            request.Headers.Add("api-key", "0b066c729e5f4a06b571de7505a205bf-94cf5a65d3a94870be77d163444e7edf");            
+            request.Headers.Add("api-key", apiKey);            
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
 

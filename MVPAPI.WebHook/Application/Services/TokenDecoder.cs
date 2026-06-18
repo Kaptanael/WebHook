@@ -4,14 +4,14 @@ using MVPAPI.WebHook.Application.Interfaces.Services;
 
 namespace MVPAPI.WebHook.Application.Services;
 
-public class TokenValidator : ITokenValidator
+public class TokenDecoder : ITokenDecoder
 {
-    public Result<TokenDecoderResponse> DecodeToken(string token)
+    public Result<TokenDecoderResponse> Decode(string token)
     {
         if (string.IsNullOrWhiteSpace(token))
             return Result<TokenDecoderResponse>.Failure("Token is required.");
 
-        var decodedToken = TokenDecoder.Decode(token);
+        var decodedToken = Common.TokenDecoder.Decode(token);
         if (decodedToken is null)
             return Result<TokenDecoderResponse>.Failure("Invalid token.");
 

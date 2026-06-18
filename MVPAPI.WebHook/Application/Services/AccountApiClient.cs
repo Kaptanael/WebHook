@@ -1,66 +1,123 @@
 ﻿namespace MVPAPI.WebHook.Application.Services;
 
-using MVPAPI.WebHook.Application.Common.Exceptions;
+using Microsoft.Extensions.Options;
+using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.DTOs.Tokens;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-public class AccountApiClient(HttpClient httpClient) : IAccountApiClient
+public class AccountApiClient(
+    HttpClient httpClient, 
+    IOptions<MVPApiOptions> mvpApiOptions) : IAccountApiClient
 {
-    public async Task<TokenResponse> CallTokenApiAsync(
-    string url,    
-    string apiKey,    
+    public async Task<Result<TokenResponse>> GetTokenAsync(    
+    string apiKey,
     string grantType,
     string clientId,
     string clientSecret,
     int companyId,
     CancellationToken ct = default)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, url);        
-
-        if (!string.IsNullOrWhiteSpace(apiKey))
-            request.Headers.Add("api-key", apiKey);
-
-        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
-        var authorization = new AuthenticationHeaderValue("Basic", credentials).ToString();
-
-        if (!string.IsNullOrWhiteSpace(authorization))
-            request.Headers.TryAddWithoutValidation("Authorization", authorization);
-
-        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        try
         {
-            ["grant_type"] = grantType,
-            ["client_id"] = clientId,
-            ["client_secret"] = clientSecret,
-            ["company_id"] = companyId.ToString()
-        });
+            using var request = new HttpRequestMessage(HttpMethod.Post, mvpApiOptions.Value.TokenUrl);
 
-        using var response = await httpClient.SendAsync(request, ct);
+            if (!string.IsNullOrWhiteSpace(apiKey))
+                request.Headers.Add("api-key", apiKey);
 
-        var content = await response.Content.ReadAsStringAsync(ct);
+            var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
+            var basicAuthorization = new AuthenticationHeaderValue("Basic", credentials).ToString();
 
-        if (!response.IsSuccessStatusCode)
-            throw new BadRequestException($"Token request failed: {response.StatusCode} - {content}");
+            if (!string.IsNullOrWhiteSpace(basicAuthorization))
+                request.Headers.TryAddWithoutValidation("Authorization", basicAuthorization);
 
-        var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(content, new JsonSerializerOptions
+            request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = grantType,
+                ["client_id"] = clientId,
+                ["client_secret"] = clientSecret,
+                ["company_id"] = companyId.ToString()
+            });
+
+            using var response = await httpClient.SendAsync(request, ct);
+            var content = await response.Content.ReadAsStringAsync(ct);
+
+            if (!response.IsSuccessStatusCode)
+                return Result<TokenResponse>.Failure($"Token request failed: {response.StatusCode} - {content}");
+
+            var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(content,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (tokenResponse is null)
+                return Result<TokenResponse>.Failure("Failed to deserialize token response.");
+
+            if (!tokenResponse.Success)
+                return Result<TokenResponse>.Failure($"Token error: {tokenResponse.Error}");
+
+            return Result<TokenResponse>.Success(tokenResponse);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            PropertyNameCaseInsensitive = true
-        });
-
-        if (tokenResponse is null)
-            throw new BadRequestException("Failed to deserialize token response.");
-
-        if (!tokenResponse.Success)
-            throw new BadRequestException($"Token error: {tokenResponse.Error}");
-
-        return tokenResponse;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return Result<TokenResponse>.Failure($"Token request errored: {ex.Message}");
+        }
     }
 
-    private static string GenerateBasicAuth(string clientId, string clientSecret)
+    public async Task<Result<TokenResponse>> GetRefreshTokenAsync(    
+    string apiKey,
+    string clientId,
+    string clientSecret,
+    string refreshToken,
+    CancellationToken ct = default)
     {
-        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
-        return $"Basic {encoded}";
-    }
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, mvpApiOptions.Value.TokenUrl);
+
+            if (!string.IsNullOrWhiteSpace(apiKey))
+                request.Headers.Add("api-key", apiKey);
+
+            var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
+            var basicAuthorization = new AuthenticationHeaderValue("Basic", credentials).ToString();
+
+            if (!string.IsNullOrWhiteSpace(basicAuthorization))
+                request.Headers.TryAddWithoutValidation("Authorization", basicAuthorization);
+
+            request.Content = new StringContent(
+                JsonSerializer.Serialize(new RefreshTokenRequest(refreshToken)),
+                Encoding.UTF8,
+                "application/json");
+
+            using var response = await httpClient.SendAsync(request, ct);
+            var content = await response.Content.ReadAsStringAsync(ct);
+
+            if (!response.IsSuccessStatusCode)
+                return Result<TokenResponse>.Failure(
+                    $"Refresh token request failed: {response.StatusCode} - {content}");
+
+            var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(content,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (tokenResponse is null)
+                return Result<TokenResponse>.Failure("Failed to deserialize refresh token response.");
+
+            if (!tokenResponse.Success)
+                return Result<TokenResponse>.Failure($"Refresh token error: {tokenResponse.Error}");
+
+            return Result<TokenResponse>.Success(tokenResponse);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return Result<TokenResponse>.Failure($"Refresh token request errored: {ex.Message}");
+        }
+    }        
 }

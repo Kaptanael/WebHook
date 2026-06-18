@@ -15,7 +15,7 @@ public static class DependencyInjection
         services.AddScoped<IWebhookEndpointService, WebhookEndpointService>();
         services.AddScoped<IWebhookEventService, WebhookEventService>();
         services.AddScoped<IWebhookDispatchService, WebhookDispatchService>();        
-        services.AddScoped<ITokenValidator, TokenValidator>();
+        services.AddScoped<ITokenDecoder, TokenDecoder>();
         return services;
     }
 }

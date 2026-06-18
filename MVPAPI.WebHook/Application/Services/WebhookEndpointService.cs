@@ -9,13 +9,13 @@ using System.Text.Json;
 namespace MVPAPI.WebHook.Application.Services;
 
 public class WebhookEndpointService(
-    ITokenValidator tokenValidator,
+    ITokenDecoder tokenValidator,
     IWebHookConnectionRepository connectionRepository,
     IWebhookEndpointRepository endpointRepository) : IWebhookEndpointService
 {
     public async Task<Result<SubscribeResponse>> SubscribeAsync(string token, SubscribeRequest request, CancellationToken cancellationToken = default)
     {
-        var decodeResult = tokenValidator.DecodeToken(token);
+        var decodeResult = tokenValidator.Decode(token);
         if (!decodeResult.IsSuccess)
             return Result.Failure<SubscribeResponse>(decodeResult.Error!);
 
@@ -51,7 +51,7 @@ public class WebhookEndpointService(
 
     public async Task<Result<UnsubscribeResponse>> UnsubscribeAsync(string token, Guid subscriberId, CancellationToken cancellationToken = default)
     {
-        var decodeResult = tokenValidator.DecodeToken(token);
+        var decodeResult = tokenValidator.Decode(token);
         if (!decodeResult.IsSuccess)
             return Result.Failure<UnsubscribeResponse>(decodeResult.Error!);
 

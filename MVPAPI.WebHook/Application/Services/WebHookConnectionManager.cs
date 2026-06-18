@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Options;
 using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
 using MVPAPI.WebHook.Application.Interfaces.Services;
@@ -7,42 +6,36 @@ using MVPAPI.WebHook.Domain.Entities;
 namespace MVPAPI.WebHook.Application.Services;
 
 public class WebHookConnectionManager(
-    ITokenValidator tokenValidator,
-    IAccountApiClient accountApiClient,
-    IOptions<MVPApiOptions> mvpApiOptions,
+    ITokenDecoder tokenDecoder,
+    IAccountApiClient accountApiClient,    
     IWebHookConnectionRepository connectionRepository) : IWebHookConnectionManager
 {
     public async Task<Result<WebHookConnection>> EnsureConnectionAsync(
         string token,
         CancellationToken cancellationToken = default)
     {
-        var decodeResult = tokenValidator.DecodeToken(token);
+        var decodeResult = tokenDecoder.Decode(token);
         if (!decodeResult.IsSuccess)
             return Result.Failure<WebHookConnection>(decodeResult.Error!);
 
         var decoded = decodeResult.Value!;
 
-        var tokenResponse = await accountApiClient.CallTokenApiAsync(
-            url: mvpApiOptions.Value.TokenUrl,
+        var tokenResult = await accountApiClient.GetTokenAsync(            
             apiKey: decoded.ApiKey,
             grantType: "client_credentials",
             clientId: decoded.ClientId,
             clientSecret: decoded.ClientSecret,
             companyId: decoded.CompanyId,
-            cancellationToken
-        );
+            cancellationToken);
 
-        if (tokenResponse is null)
-            return Result.Failure<WebHookConnection>("Token response is null.");
+        if (!tokenResult.IsSuccess)
+            return Result.Failure<WebHookConnection>(tokenResult.Error!);
 
-        if (!tokenResponse.Success)
-            return Result.Failure<WebHookConnection>($"Token request failed: {tokenResponse.Error}");
+        var tokenResponse = tokenResult.Value!;
 
         var existing = await connectionRepository.GetByClientTokenAsync(token, cancellationToken);
         if (existing is not null)
-        {            
             return Result.Success(existing);
-        }
 
         var connection = new WebHookConnection
         {
@@ -59,3 +52,5 @@ public class WebHookConnectionManager(
         return Result.Success(connection);
     }
 }
+
+

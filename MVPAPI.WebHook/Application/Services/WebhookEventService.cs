@@ -15,7 +15,7 @@ namespace MVPAPI.WebHook.Application.Services;
 
 public class WebhookEventService(
     IMapper mapper,
-    ITokenValidator tokenValidator,
+    ITokenDecoder tokenDecoder,
     IWebHookConnectionManager connectionManager,
     IOptions<WebhookRouteOptions> routeOptions,
     IWebHookConnectionRepository connectionRepository,
@@ -40,7 +40,7 @@ public class WebhookEventService(
         if (!connectionResult.IsSuccess)
             return Result.Failure<IReadOnlyList<EventResponse>>(connectionResult.Error!);
 
-        var decodeResult = tokenValidator.DecodeToken(token);
+        var decodeResult = tokenDecoder.Decode(token);
         if (!decodeResult.IsSuccess)
             return Result.Failure<IReadOnlyList<EventResponse>>(decodeResult.Error!);
 

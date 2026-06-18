@@ -340,8 +340,7 @@ function minifyPayload(jsonStr) {
 async function previewSignature() {
   try {
     const apiKey    = document.getElementById('apiKey').value.trim();
-    const ts        = document.getElementById('timestamp').value.trim()
-                      || Math.floor(Date.now() / 1000).toString();
+    const ts        = document.getElementById('timestamp').value.trim() || Math.floor(Date.now() / 1000).toString();
     const payload   = minifyPayload(document.getElementById('payload').value);
     const message   = `${ts}.${payload}`;
     const sig       = await computeHmac(apiKey, message);

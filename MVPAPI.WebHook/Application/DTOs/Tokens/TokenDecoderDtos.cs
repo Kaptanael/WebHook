@@ -2,6 +2,9 @@
 
 namespace MVPAPI.WebHook.Application.DTOs.Tokens;
 
+public record RefreshTokenRequest(
+    [property: JsonPropertyName("refreshToken")] string RefreshToken);
+
 public record TokenDecoderResponse(
     string BaseUrl,
     string ApiKey,
@@ -10,20 +13,9 @@ public record TokenDecoderResponse(
     string ApplicationName,
     int CompanyId);
 
-public sealed class TokenResponse
-{
-    [JsonPropertyName("token")]
-    public string Token { get; set; } = string.Empty;
-
-    [JsonPropertyName("refreshToken")]
-    public string RefreshToken { get; set; } = string.Empty;
-
-    [JsonPropertyName("success")]
-    public bool Success { get; set; }
-
-    [JsonPropertyName("expiresIn")]
-    public DateTime ExpiresIn { get; set; }
-
-    [JsonPropertyName("error")]
-    public string Error { get; set; } = string.Empty;
-}
+public record TokenResponse(
+    [property: JsonPropertyName("token")] string Token,
+    [property: JsonPropertyName("refreshToken")] string RefreshToken,
+    [property: JsonPropertyName("success")] bool Success,
+    [property: JsonPropertyName("expiresIn")] DateTime ExpiresIn,
+    [property: JsonPropertyName("error")] string Error);

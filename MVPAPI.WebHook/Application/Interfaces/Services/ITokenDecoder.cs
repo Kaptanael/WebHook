@@ -3,7 +3,7 @@ using MVPAPI.WebHook.Application.DTOs.Tokens;
 
 namespace MVPAPI.WebHook.Application.Interfaces.Services;
 
-public interface ITokenValidator
+public interface ITokenDecoder
 {
-    Result<TokenDecoderResponse> DecodeToken(string token);
+    Result<TokenDecoderResponse> Decode(string token);
 }
