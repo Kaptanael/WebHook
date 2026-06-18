@@ -64,10 +64,7 @@ public class WebhookEventService(
         var expected = ComputeHmac(decoded.ApiKey, $"{timestamp}.{rawPayload}");
         if (!CryptographicEquals(expected, signature))
             return Result.Failure<IReadOnlyList<EventResponse>>("Invalid signature.");
-
-        // If a route URL is configured for this event type, ensure the endpoint exists in the DB.
-        // This auto-registers the internal API (e.g. event.door.manual → http://localhost:7101/api/ManualDoor/Execute)
-        // on first use so subsequent lookups and retries work through the normal delivery pipeline.
+        
         if (routeOptions.Value.Routes.TryGetValue(request.EventType, out var internalUrl))
         {
             var existing = await endpointRepository.GetActiveByCompanyAndEventTypeAsync(
