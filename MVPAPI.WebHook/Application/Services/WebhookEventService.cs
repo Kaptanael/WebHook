@@ -32,89 +32,35 @@ public class WebhookEventService(
         string timestamp,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(timestamp))
-            return Result.Failure<IReadOnlyList<EventResponse>>("Missing X-Timestamp header.");
-
-        if (!long.TryParse(timestamp, out var ts) ||
-            Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts) > TimestampToleranceSeconds)
-            return Result.Failure<IReadOnlyList<EventResponse>>("Request timestamp is invalid or expired.");
-
-        if (string.IsNullOrWhiteSpace(signature))
-            return Result.Failure<IReadOnlyList<EventResponse>>("Missing X-Signature header.");
-
-        if (string.IsNullOrWhiteSpace(token))
-            return Result.Failure<IReadOnlyList<EventResponse>>("Missing X-Endpoint-Token header.");
+        var headerError = ValidateRequestHeaders(timestamp, signature, token);
+        if (headerError is not null)
+            return Result.Failure<IReadOnlyList<EventResponse>>(headerError);
 
         var connectionResult = await connectionManager.EnsureConnectionAsync(token, cancellationToken);
         if (!connectionResult.IsSuccess)
             return Result.Failure<IReadOnlyList<EventResponse>>(connectionResult.Error!);
 
-        var connection = connectionResult.Value!;
-
         var decodeResult = tokenValidator.DecodeToken(token);
         if (!decodeResult.IsSuccess)
             return Result.Failure<IReadOnlyList<EventResponse>>(decodeResult.Error!);
-
-        var decoded = decodeResult.Value!;
 
         var rawPayload = request.Payload.GetRawText();
         if (string.IsNullOrWhiteSpace(rawPayload))
             return Result.Failure<IReadOnlyList<EventResponse>>("Payload cannot be empty.");
 
-        var expected = ComputeHmac(decoded.ApiKey, $"{timestamp}.{rawPayload}");
-        if (!CryptographicEquals(expected, signature))
+        if (!VerifyHmacSignature(decodeResult.Value!.ApiKey, timestamp, rawPayload, signature))
             return Result.Failure<IReadOnlyList<EventResponse>>("Invalid signature.");
-        
-        if (routeOptions.Value.Routes.TryGetValue(request.EventType, out var internalUrl))
-        {
-            var existing = await endpointRepository.GetActiveByCompanyAndEventTypeAsync(
-                connection.CompanyId, request.EventType, cancellationToken);
 
-            if (existing.Count == 0)
-            {
-                try
-                {
-                    await endpointRepository.AddAsync(new WebhookEndpoint
-                    {
-                        EndPointToken     = TokenGenerator.Generate(),
-                        Endpoint          = internalUrl,
-                        CompanyId         = connection.CompanyId,
-                        TriggerConfigJson = JsonSerializer.Serialize(new { triggerType = request.EventType, companyId = connection.CompanyId }),
-                        IsActive          = true,
-                        ActionDataSchema  = "{}"
-                    }, cancellationToken);
-                }
-                catch
-                {
-                    // A concurrent request already created the endpoint — safe to ignore.
-                }
-            }
-        }
+        var connection = connectionResult.Value!;
+        await EnsureEndpointRegisteredAsync(token, request.EventType, connection.CompanyId, cancellationToken);
 
         var endpoints = await endpointRepository.GetActiveByCompanyAndEventTypeAsync(
             connection.CompanyId, request.EventType, cancellationToken);
 
-        // No endpoint in DB and no route URL configured — nothing to dispatch.
         if (endpoints.Count == 0)
             return Result.Success<IReadOnlyList<EventResponse>>([]);
 
-        var events = new List<WebhookEvent>(endpoints.Count);
-        foreach (var endpoint in endpoints)
-        {
-            var webhookEvent = new WebhookEvent
-            {
-                WebhookId        = endpoint.Id,
-                Provider         = request.Client,
-                EventType        = request.EventType,
-                Payload          = rawPayload,
-                Status           = EventStatus.Pending,
-                ReceivedAtUtc    = DateTime.UtcNow,
-                NextAttemptAtUtc = DateTime.UtcNow
-            };
-            events.Add(webhookEvent);
-            await eventRepository.AddAsync(webhookEvent, cancellationToken);
-        }
-
+        var events = await PersistEventsAsync(endpoints, request, rawPayload, cancellationToken);
         return Result.Success<IReadOnlyList<EventResponse>>(mapper.Map<List<EventResponse>>(events));
     }
 
@@ -214,6 +160,73 @@ public class WebhookEventService(
 
         await eventRepository.UpdateAsync(webhookEvent, cancellationToken);
         return true;
+    }
+
+    private static string? ValidateRequestHeaders(string timestamp, string signature, string token)
+    {
+        if (string.IsNullOrWhiteSpace(timestamp))
+            return "Missing X-Timestamp header.";
+
+        if (!long.TryParse(timestamp, out var ts) ||
+            Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts) > TimestampToleranceSeconds)
+            return "Request timestamp is invalid or expired.";
+
+        if (string.IsNullOrWhiteSpace(signature))
+            return "Missing X-Signature header.";
+
+        if (string.IsNullOrWhiteSpace(token))
+            return "Missing X-Endpoint-Token header.";
+
+        return null;
+    }
+
+    private static bool VerifyHmacSignature(string apiKey, string timestamp, string rawPayload, string signature)
+    {
+        var expected = ComputeHmac(apiKey, $"{timestamp}.{rawPayload}");
+        return CryptographicEquals(expected, signature);
+    }
+
+    private async Task EnsureEndpointRegisteredAsync(string token, string eventType, int companyId, CancellationToken cancellationToken)
+    {
+        if (!routeOptions.Value.Routes.TryGetValue(eventType, out var internalUrl))
+            return;
+
+        var existing = await endpointRepository.GetActiveByCompanyAndEventTypeAsync(companyId, eventType, cancellationToken);
+        if (existing.Count > 0)
+            return;
+
+        await endpointRepository.AddAsync(new WebhookEndpoint
+        {
+            EndPointToken = token,
+            Endpoint = internalUrl,
+            CompanyId = companyId,
+            TriggerConfigJson = JsonSerializer.Serialize(new { triggerType = eventType, companyId }),
+            IsActive = true,
+            ActionDataSchema = "{}"
+        }, cancellationToken);
+    }
+
+    private async Task<List<WebhookEvent>> PersistEventsAsync(
+        IReadOnlyList<WebhookEndpoint> endpoints, EventRequest request, string rawPayload,
+        CancellationToken cancellationToken)
+    {
+        var events = new List<WebhookEvent>(endpoints.Count);
+        foreach (var endpoint in endpoints)
+        {
+            var webhookEvent = new WebhookEvent
+            {
+                WebhookId = endpoint.Id,
+                Provider = request.Client,
+                EventType = request.EventType,
+                Payload = rawPayload,
+                Status = EventStatus.Pending,
+                ReceivedAtUtc = DateTime.UtcNow,
+                NextAttemptAtUtc = DateTime.UtcNow
+            };
+            events.Add(webhookEvent);
+            await eventRepository.AddAsync(webhookEvent, cancellationToken);
+        }
+        return events;
     }
 
     private static string ComputeHmac(string secret, string message)

@@ -1,4 +1,5 @@
 using MVPAPI.WebHook.Application.Interfaces;
+using System.Net.Http.Headers;
 using System.Text;
 
 namespace MVPAPI.WebHook.Infrastructure.Delivery;
@@ -15,9 +16,8 @@ public class HttpWebhookDeliveryClient(
             {
                 Content = new StringContent(delivery.Payload, Encoding.UTF8, "application/json")
             };
-            request.Headers.Add("X-Webhook-Event", delivery.EventType);
-            request.Headers.Add("X-Webhook-Token", delivery.EndpointToken);
-            request.Headers.Add("X-Webhook-Delivery-Id", delivery.EventId.ToString());
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", delivery.MVPApiToken);
+            request.Headers.Add("api-key", "0b066c729e5f4a06b571de7505a205bf-94cf5a65d3a94870be77d163444e7edf");            
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
 

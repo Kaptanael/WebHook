@@ -5,7 +5,9 @@ public record WebhookDelivery(
     string TargetUrl,
     string EventType,
     string Payload,
-    string EndpointToken);
+    string EndpointToken,
+    string MVPApiToken,
+    string MVPApiRefreshToken);
 
 public record DeliveryResult(bool Success, string? Error)
 {

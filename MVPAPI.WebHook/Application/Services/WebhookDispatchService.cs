@@ -8,6 +8,7 @@ namespace MVPAPI.WebHook.Application.Services;
 public class WebhookDispatchService(
     IWebhookEventRepository eventRepository,
     IWebhookEndpointRepository endpointRepository,
+    IWebHookConnectionRepository connectionRepository,
     IWebhookEventService eventService,
     IWebhookDeliveryClient deliveryClient) : IWebhookDispatchService
 {
@@ -67,12 +68,18 @@ public class WebhookDispatchService(
         if (endpoint is null)
             return DeliveryResult.Fail("Endpoint no longer exists for the event.");
 
+        var connection = await connectionRepository.GetByClientTokenAsync(endpoint.EndPointToken, cancellationToken);
+        if (connection is null)
+            return DeliveryResult.Fail("Connection no longer exists for the endpoint.");
+
         var delivery = new WebhookDelivery(
             webhookEvent.Id,
             endpoint.Endpoint,
             webhookEvent.EventType,
             webhookEvent.Payload,
-            endpoint.EndPointToken);
+            endpoint.EndPointToken,
+            connection.MVPApiToken,
+            connection.MVPApiRefreshToken);
 
         return await deliveryClient.DeliverAsync(delivery, cancellationToken);
     }
