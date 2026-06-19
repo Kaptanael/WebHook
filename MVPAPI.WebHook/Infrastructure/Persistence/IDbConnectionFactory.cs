@@ -8,5 +8,3 @@ public interface IDbConnectionFactory
 }
 
 public interface IWebhookDbConnectionFactory : IDbConnectionFactory { }
-
-public interface IMvpEventDbConnectionFactory : IDbConnectionFactory { }

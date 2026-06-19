@@ -15,11 +15,7 @@ public static class DependencyInjection
         var webhookDb = configuration.GetConnectionString("MVPWebhookDB")
             ?? throw new InvalidOperationException("Connection string 'MVPWebhookDB' is not configured.");
 
-        var mvpEventDb = configuration.GetConnectionString("MVPEventDB")
-            ?? throw new InvalidOperationException("Connection string 'MVPEventDB' is not configured.");
-
         services.AddSingleton<IWebhookDbConnectionFactory>(new SqlConnectionFactory(webhookDb));
-        services.AddSingleton<IMvpEventDbConnectionFactory>(new SqlConnectionFactory(mvpEventDb));
 
         services.AddScoped<IWebHookConnectionRepository, WebHookConnectionRepository>();
         services.AddScoped<IWebhookEndpointRepository, WebhookEndpointRepository>();
