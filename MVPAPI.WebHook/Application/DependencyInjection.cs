@@ -14,8 +14,10 @@ public static class DependencyInjection
         services.AddHttpClient<IAccountApiClient, AccountApiClient>();
         services.AddScoped<IWebhookEndpointService, WebhookEndpointService>();
         services.AddScoped<IWebhookEventService, WebhookEventService>();
-        services.AddScoped<IWebhookDispatchService, WebhookDispatchService>();        
+        services.AddScoped<IWebhookEventLifecycleService, WebhookEventLifecycleService>();
+        services.AddScoped<IWebhookDispatchService, WebhookDispatchService>();
         services.AddScoped<ITokenDecoder, TokenDecoder>();
+        services.AddSingleton<IWebhookSignatureVerifier, WebhookSignatureVerifier>();
         return services;
     }
 }

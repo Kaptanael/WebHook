@@ -9,8 +9,10 @@ namespace MVPAPI.WebHook.Controllers;
 [Produces("application/json")]
 public class WebhookEventsController(
     IWebhookEventService eventService,
+    IWebhookEventLifecycleService eventLifecycle,
     ILogger<WebhookEventsController> logger) : ControllerBase
 {
+    [NonAction]
     [HttpPost]
     [EndpointSummary("Dispatch events to all subscribed endpoints")]
     [EndpointDescription("Looks up the connection by client token, then queues one pending event per registered endpoint for background delivery.")]
@@ -43,7 +45,7 @@ public class WebhookEventsController(
     [HttpPost("{id:Guid}/processing")]
     public async Task<IActionResult> MarkProcessing(Guid id, CancellationToken cancellationToken)
     {
-        var updated = await eventService.MarkProcessingAsync(id, cancellationToken);
+        var updated = await eventLifecycle.MarkProcessingAsync(id, cancellationToken);
         return updated ? NoContent() : NotFound();
     }
 
@@ -51,7 +53,7 @@ public class WebhookEventsController(
     [HttpPost("{id:Guid}/completed")]
     public async Task<IActionResult> MarkCompleted(Guid id, CancellationToken cancellationToken)
     {
-        var updated = await eventService.MarkCompletedAsync(id, cancellationToken);
+        var updated = await eventLifecycle.MarkCompletedAsync(id, cancellationToken);
         return updated ? NoContent() : NotFound();
     }
 
@@ -59,7 +61,7 @@ public class WebhookEventsController(
     [HttpPost("{id:Guid}/failed")]
     public async Task<IActionResult> MarkFailed(Guid id, [FromBody] MarkFailedRequest request, CancellationToken cancellationToken)
     {
-        var updated = await eventService.MarkFailedAsync(id, request.Error, cancellationToken);
+        var updated = await eventLifecycle.MarkFailedAsync(id, request.Error, cancellationToken);
         return updated ? NoContent() : NotFound();
     }
 }

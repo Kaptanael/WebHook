@@ -10,7 +10,7 @@ public class WebhookDispatchService(
     IWebhookEventRepository eventRepository,
     IWebhookEndpointRepository endpointRepository,
     IWebHookConnectionRepository connectionRepository,
-    IWebhookEventService eventService,
+    IWebhookEventLifecycleService eventLifecycle,
     IWebhookDeliveryClient deliveryClient,
     ITokenDecoder tokenDecoder,
     IAccountApiClient accountApiClient,
@@ -35,12 +35,12 @@ public class WebhookDispatchService(
 
             if (result.Success)
             {
-                await eventService.MarkCompletedAsync(webhookEvent.Id, cancellationToken);
+                await eventLifecycle.MarkCompletedAsync(webhookEvent.Id, cancellationToken);
                 delivered++;
             }
             else
             {
-                await eventService.MarkFailedAsync(webhookEvent.Id, result.Error ?? "Delivery failed.", cancellationToken);
+                await eventLifecycle.MarkFailedAsync(webhookEvent.Id, result.Error ?? "Delivery failed.", cancellationToken);
                 failed++;
             }
         }
@@ -57,7 +57,7 @@ public class WebhookDispatchService(
         {
             // Counts as a failed attempt so a poison event cannot crash-loop forever:
             // it re-enters the queue with backoff and hits the Failed cap eventually.
-            await eventService.MarkFailedAsync(
+            await eventLifecycle.MarkFailedAsync(
                 staleEvent.Id,
                 $"Recovered from stale Processing state (exceeded {olderThan.TotalSeconds:F0}s claim timeout).",
                 cancellationToken);
