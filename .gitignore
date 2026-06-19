@@ -10,3 +10,7 @@
 /.claude
 /MVPAPI.WebHook/bin/Debug/net9.0
 /MVPAPI.WebHook/obj
+
+# Build output (all projects)
+[Bb]in/
+[Oo]bj/
