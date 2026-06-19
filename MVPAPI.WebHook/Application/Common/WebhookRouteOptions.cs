@@ -6,7 +6,7 @@ public class WebhookRouteOptions
 
     /// <summary>
     /// Maps event type keys to internal API URLs.
-    /// Example: { "event.door.manual": "http://localhost:7101/api/ManualDoor/Execute" }
+    /// Example: { "door.manual": "http://localhost:7101/api/ManualDoor/Execute" }
     /// </summary>
     public Dictionary<string, string> Routes { get; set; } = [];
 }
