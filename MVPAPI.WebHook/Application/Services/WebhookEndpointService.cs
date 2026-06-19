@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.Common.Exceptions;
 using MVPAPI.WebHook.Application.DTOs.Endpoints;
@@ -11,23 +12,33 @@ namespace MVPAPI.WebHook.Application.Services;
 public class WebhookEndpointService(
     ITokenDecoder tokenValidator,
     IWebHookConnectionRepository connectionRepository,
-    IWebhookEndpointRepository endpointRepository) : IWebhookEndpointService
+    IWebhookEndpointRepository endpointRepository,
+    ILogger<WebhookEndpointService> logger) : IWebhookEndpointService
 {
     public async Task<Result<SubscribeResponse>> SubscribeAsync(string token, SubscribeRequest request, CancellationToken cancellationToken = default)
     {
         var decodeResult = tokenValidator.Decode(token);
         if (!decodeResult.IsSuccess)
+        {
+            logger.LogWarning($"Subscribe failed — token decode error: {decodeResult.Error}");
             return Result.Failure<SubscribeResponse>(decodeResult.Error!);
+        }
 
         var companyId = decodeResult.Value!.CompanyId;
 
         var existingWebhookEndpoint = await endpointRepository.GetByEndpointAsync(request.Endpoint, cancellationToken);
         if (existingWebhookEndpoint is not null)
-            return Result.Failure<SubscribeResponse>("Webhook endpoint already exists.");        
+        {
+            logger.LogWarning($"Subscribe failed — endpoint {request.Endpoint} already exists for company {companyId}.");
+            return Result.Failure<SubscribeResponse>("Webhook endpoint already exists.");
+        }
 
         var schemaResult = WebhookSchemaGenerator.Generate(request.TriggerConfigJson.GetRawText());
         if (!schemaResult.IsSuccess)
+        {
+            logger.LogWarning($"Subscribe failed — schema generation error for company {companyId}: {schemaResult.Error}");
             return Result<SubscribeResponse>.Failure(schemaResult.Error!);
+        }
 
         var actionDataSchema = schemaResult.Value!;
 
@@ -42,10 +53,11 @@ public class WebhookEndpointService(
 
         await endpointRepository.AddAsync(endpoint, cancellationToken);
 
+        logger.LogInformation($"Endpoint {endpoint.Id} subscribed for company {companyId} -> {request.Endpoint}.");
         return Result.Success(new SubscribeResponse
         {
             Id = endpoint.Id,
-            RemoteEndpoint = endpoint.Endpoint            
+            RemoteEndpoint = endpoint.Endpoint
         });
     }
 
@@ -53,21 +65,35 @@ public class WebhookEndpointService(
     {
         var decodeResult = tokenValidator.Decode(token);
         if (!decodeResult.IsSuccess)
+        {
+            logger.LogWarning($"Unsubscribe failed — token decode error: {decodeResult.Error}");
             return Result.Failure<UnsubscribeResponse>(decodeResult.Error!);
+        }
 
         var companyId = decodeResult.Value!.CompanyId;
 
         var endpoint = await endpointRepository.GetByIdAsync(subscriberId, cancellationToken);
         if (endpoint is null)
+        {
+            logger.LogWarning($"Unsubscribe failed — endpoint {subscriberId} not found.");
             return Result.Failure<UnsubscribeResponse>("Webhook endpoint not found.");
+        }
 
         if (endpoint.CompanyId != companyId)
+        {
+            logger.LogWarning($"Unsubscribe denied — endpoint {subscriberId} belongs to company {endpoint.CompanyId}, not {companyId}.");
             return Result.Failure<UnsubscribeResponse>("Webhook endpoint does not belong to this company.");
+        }
 
         var removed = await endpointRepository.DeleteAsync(endpoint.Id, cancellationToken);
-        return removed
-            ? Result.Success(new UnsubscribeResponse(subscriberId))
-            : Result.Failure<UnsubscribeResponse>("Failed to remove webhook endpoint.");
+        if (!removed)
+        {
+            logger.LogWarning($"Unsubscribe failed — could not delete endpoint {subscriberId}.");
+            return Result.Failure<UnsubscribeResponse>("Failed to remove webhook endpoint.");
+        }
+
+        logger.LogInformation($"Endpoint {subscriberId} unsubscribed for company {companyId}.");
+        return Result.Success(new UnsubscribeResponse(subscriberId));
     }
 
     public async Task<Result<WebhookSchemaResponse>> GetSchemaAsync(Guid id, CancellationToken cancellationToken = default)

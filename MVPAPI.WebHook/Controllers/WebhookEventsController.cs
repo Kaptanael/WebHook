@@ -7,7 +7,9 @@ namespace MVPAPI.WebHook.Controllers;
 [ApiController]
 [Route("api/webhook/events")]
 [Produces("application/json")]
-public class WebhookEventsController(IWebhookEventService eventService) : ControllerBase
+public class WebhookEventsController(
+    IWebhookEventService eventService,
+    ILogger<WebhookEventsController> logger) : ControllerBase
 {
     [HttpPost]
     [EndpointSummary("Dispatch events to all subscribed endpoints")]
@@ -17,6 +19,7 @@ public class WebhookEventsController(IWebhookEventService eventService) : Contro
     public async Task<IActionResult> Publish([FromBody] PublishEventRequest request, CancellationToken cancellationToken)
     {
         var events = await eventService.PublishAsync(request, cancellationToken);
+        logger.LogInformation($"Publish: queued {events.Count} event(s) for event type {request.EventType}.");
         return Ok(events);
     }
 

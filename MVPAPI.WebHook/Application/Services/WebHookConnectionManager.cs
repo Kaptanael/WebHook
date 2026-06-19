@@ -7,8 +7,9 @@ namespace MVPAPI.WebHook.Application.Services;
 
 public class WebHookConnectionManager(
     ITokenDecoder tokenDecoder,
-    IAccountApiClient accountApiClient,    
-    IWebHookConnectionRepository connectionRepository) : IWebHookConnectionManager
+    IAccountApiClient accountApiClient,
+    IWebHookConnectionRepository connectionRepository,
+    ILogger<WebHookConnectionManager> logger) : IWebHookConnectionManager
 {
     public async Task<Result<WebHookConnection>> EnsureConnectionAsync(
         string token,
@@ -16,11 +17,14 @@ public class WebHookConnectionManager(
     {
         var decodeResult = tokenDecoder.Decode(token);
         if (!decodeResult.IsSuccess)
+        {
+            logger.LogWarning($"Connection refused — token decode failed: {decodeResult.Error}");
             return Result.Failure<WebHookConnection>(decodeResult.Error!);
+        }
 
         var decoded = decodeResult.Value!;
 
-        var tokenResult = await accountApiClient.GetTokenAsync(            
+        var tokenResult = await accountApiClient.GetTokenAsync(
             apiKey: decoded.ApiKey,
             grantType: "client_credentials",
             clientId: decoded.ClientId,
@@ -29,13 +33,19 @@ public class WebHookConnectionManager(
             cancellationToken);
 
         if (!tokenResult.IsSuccess)
+        {
+            logger.LogWarning($"Connection refused for company {decoded.CompanyId} — MVP API token request failed: {tokenResult.Error}");
             return Result.Failure<WebHookConnection>(tokenResult.Error!);
+        }
 
         var tokenResponse = tokenResult.Value!;
 
         var existing = await connectionRepository.GetByClientTokenAsync(token, cancellationToken);
         if (existing is not null)
+        {
+            logger.LogInformation($"Existing connection found for company {decoded.CompanyId}.");
             return Result.Success(existing);
+        }
 
         var connection = new WebHookConnection
         {
@@ -49,6 +59,7 @@ public class WebHookConnectionManager(
         };
 
         await connectionRepository.AddAsync(connection, cancellationToken);
+        logger.LogInformation($"New connection created for company {decoded.CompanyId} with application {decoded.ApplicationName}.");
         return Result.Success(connection);
     }
 }

@@ -20,7 +20,8 @@ public class WebhookEventService(
     IOptions<WebhookRouteOptions> routeOptions,
     IWebHookConnectionRepository connectionRepository,
     IWebhookEndpointRepository endpointRepository,
-    IWebhookEventRepository eventRepository) : IWebhookEventService
+    IWebhookEventRepository eventRepository,
+    ILogger<WebhookEventService> logger) : IWebhookEventService
 {
     private const int MaxAttempts = 5;
     private const int TimestampToleranceSeconds = 300;
@@ -34,22 +35,37 @@ public class WebhookEventService(
     {
         var headerError = ValidateRequestHeaders(timestamp, signature, token);
         if (headerError is not null)
+        {
+            logger.LogWarning($"Event rejected — invalid headers: {headerError}");
             return Result.Failure<IReadOnlyList<EventResponse>>(headerError);
+        }
 
         var connectionResult = await connectionManager.EnsureConnectionAsync(token, cancellationToken);
         if (!connectionResult.IsSuccess)
+        {
+            logger.LogWarning($"Event rejected — connection failed: {connectionResult.Error}");
             return Result.Failure<IReadOnlyList<EventResponse>>(connectionResult.Error!);
+        }
 
         var decodeResult = tokenDecoder.Decode(token);
         if (!decodeResult.IsSuccess)
+        {
+            logger.LogWarning($"Event rejected — token decode failed: {decodeResult.Error}");
             return Result.Failure<IReadOnlyList<EventResponse>>(decodeResult.Error!);
+        }
 
         var rawPayload = request.Payload.GetRawText();
         if (string.IsNullOrWhiteSpace(rawPayload))
+        {
+            logger.LogWarning("Event rejected — empty payload.");
             return Result.Failure<IReadOnlyList<EventResponse>>("Payload cannot be empty.");
+        }
 
         if (!VerifyHmacSignature(decodeResult.Value!.ApiKey, timestamp, rawPayload, signature))
+        {
+            logger.LogWarning($"Event rejected — HMAC signature mismatch for event type {request.EventType}.");
             return Result.Failure<IReadOnlyList<EventResponse>>("Invalid signature.");
+        }
 
         var connection = connectionResult.Value!;
         await EnsureEndpointRegisteredAsync(token, request.EventType, connection.CompanyId, cancellationToken);
@@ -58,9 +74,13 @@ public class WebhookEventService(
             connection.CompanyId, request.EventType, cancellationToken);
 
         if (endpoints.Count == 0)
+        {
+            logger.LogInformation($"No active endpoints for company {connection.CompanyId} with event type {request.EventType}; skipping.");
             return Result.Success<IReadOnlyList<EventResponse>>([]);
+        }
 
         var events = await PersistEventsAsync(endpoints, request, rawPayload, cancellationToken);
+        logger.LogInformation($"Queued {events.Count} event(s) for company {connection.CompanyId} with event type {request.EventType}.");
         return Result.Success<IReadOnlyList<EventResponse>>(mapper.Map<List<EventResponse>>(events));
     }
 
@@ -72,6 +92,7 @@ public class WebhookEventService(
         var endpoints = await endpointRepository.GetByCompanyIdAsync(connection.CompanyId, cancellationToken);
         if (endpoints.Count == 0)
         {
+            logger.LogInformation($"No endpoints for company {connection.CompanyId}; nothing to publish.");
             return [];
         }
 
@@ -92,6 +113,7 @@ public class WebhookEventService(
             await eventRepository.AddAsync(webhookEvent, cancellationToken);
         }
 
+        logger.LogInformation($"Published {events.Count} event(s) for company {connection.CompanyId} with event type {request.EventType}.");
         return mapper.Map<List<EventResponse>>(events);
     }
 
@@ -106,7 +128,7 @@ public class WebhookEventService(
         var events = await eventRepository.GetDueForProcessingAsync(batchSize, DateTime.UtcNow, cancellationToken);
         return mapper.Map<List<EventResponse>>(events);
     }
-
+    
     public async Task<bool> MarkProcessingAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var webhookEvent = await eventRepository.GetByIdAsync(id, cancellationToken);
@@ -151,11 +173,13 @@ public class WebhookEventService(
         {
             webhookEvent.Status = EventStatus.Failed;
             webhookEvent.NextAttemptAtUtc = null;
+            logger.LogWarning($"Event {id} permanently failed after {webhookEvent.Attempts} attempt(s). Last error: {error}");
         }
         else
         {
             webhookEvent.Status = EventStatus.Retrying;
             webhookEvent.NextAttemptAtUtc = DateTime.UtcNow.AddMinutes(Math.Pow(2, webhookEvent.Attempts - 1));
+            logger.LogInformation($"Event {id} attempt {webhookEvent.Attempts}/{MaxAttempts} failed; retrying at {webhookEvent.NextAttemptAtUtc:O}. Error: {error}");
         }
 
         await eventRepository.UpdateAsync(webhookEvent, cancellationToken);
@@ -195,6 +219,7 @@ public class WebhookEventService(
         if (existing.Count > 0)
             return;
 
+        logger.LogInformation($"Auto-registering internal endpoint for company {companyId} with event type {eventType} -> {internalUrl}.");
         await endpointRepository.AddAsync(new WebhookEndpoint
         {
             EndPointToken = token,
