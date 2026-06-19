@@ -22,7 +22,7 @@ public class WebhookDispatcherService(
         // the event is considered "stale" and can be picked up again for retry.
 
         logger.LogInformation("Webhook dispatcher started.");
-        logger.LogInformation($"Polling every {interval}s, batch size {badgeSize}, stale-claim timeout {staleClaimTimeout}s.");            
+        logger.LogInformation("Polling every {Interval}s, batch size {BatchSize}, stale-claim timeout {StaleClaimTimeout}s.", interval, badgeSize, staleClaimTimeout);
 
         using var timer = new PeriodicTimer(interval);
         do
@@ -43,7 +43,7 @@ public class WebhookDispatcherService(
                 var summary = await dispatchService.DispatchDueEventsAsync(options.Value.BatchSize, stoppingToken);
                 if (summary.Claimed > 0)
                 {
-                    logger.LogInformation($"Dispatched {summary.Claimed} event(s): {summary.Delivered} delivered, {summary.Failed} failed.");                        
+                    logger.LogInformation("Dispatched {Claimed} event(s): {Delivered} delivered, {Failed} failed.", summary.Claimed, summary.Delivered, summary.Failed);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

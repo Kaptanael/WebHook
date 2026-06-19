@@ -20,7 +20,7 @@ public class WebhookEndpointService(
         var decodeResult = tokenValidator.Decode(token);
         if (!decodeResult.IsSuccess)
         {
-            logger.LogWarning($"Subscribe failed — token decode error: {decodeResult.Error}");
+            logger.LogWarning("Subscribe failed — token decode error: {Error}", decodeResult.Error);
             return Result.Failure<SubscribeResponse>(decodeResult.Error!);
         }
 
@@ -29,14 +29,14 @@ public class WebhookEndpointService(
         var existingWebhookEndpoint = await endpointRepository.GetByEndpointAsync(request.Endpoint, cancellationToken);
         if (existingWebhookEndpoint is not null)
         {
-            logger.LogWarning($"Subscribe failed — endpoint {request.Endpoint} already exists for company {companyId}.");
+            logger.LogWarning("Subscribe failed — endpoint {Endpoint} already exists for company {CompanyId}.", request.Endpoint, companyId);
             return Result.Failure<SubscribeResponse>("Webhook endpoint already exists.");
         }
 
         var schemaResult = WebhookSchemaGenerator.Generate(request.TriggerConfigJson.GetRawText());
         if (!schemaResult.IsSuccess)
         {
-            logger.LogWarning($"Subscribe failed — schema generation error for company {companyId}: {schemaResult.Error}");
+            logger.LogWarning("Subscribe failed — schema generation error for company {CompanyId}: {Error}", companyId, schemaResult.Error);
             return Result<SubscribeResponse>.Failure(schemaResult.Error!);
         }
 
@@ -53,7 +53,7 @@ public class WebhookEndpointService(
 
         await endpointRepository.AddAsync(endpoint, cancellationToken);
 
-        logger.LogInformation($"Endpoint {endpoint.Id} subscribed for company {companyId} -> {request.Endpoint}.");
+        logger.LogInformation("Endpoint {EndpointId} subscribed for company {CompanyId} -> {Endpoint}.", endpoint.Id, companyId, request.Endpoint);
         return Result.Success(new SubscribeResponse
         {
             Id = endpoint.Id,
@@ -66,7 +66,7 @@ public class WebhookEndpointService(
         var decodeResult = tokenValidator.Decode(token);
         if (!decodeResult.IsSuccess)
         {
-            logger.LogWarning($"Unsubscribe failed — token decode error: {decodeResult.Error}");
+            logger.LogWarning("Unsubscribe failed — token decode error: {Error}", decodeResult.Error);
             return Result.Failure<UnsubscribeResponse>(decodeResult.Error!);
         }
 
@@ -75,24 +75,24 @@ public class WebhookEndpointService(
         var endpoint = await endpointRepository.GetByIdAsync(subscriberId, cancellationToken);
         if (endpoint is null)
         {
-            logger.LogWarning($"Unsubscribe failed — endpoint {subscriberId} not found.");
+            logger.LogWarning("Unsubscribe failed — endpoint {SubscriberId} not found.", subscriberId);
             return Result.Failure<UnsubscribeResponse>("Webhook endpoint not found.");
         }
 
         if (endpoint.CompanyId != companyId)
         {
-            logger.LogWarning($"Unsubscribe denied — endpoint {subscriberId} belongs to company {endpoint.CompanyId}, not {companyId}.");
+            logger.LogWarning("Unsubscribe denied — endpoint {SubscriberId} belongs to company {OwnerCompanyId}, not {CompanyId}.", subscriberId, endpoint.CompanyId, companyId);
             return Result.Failure<UnsubscribeResponse>("Webhook endpoint does not belong to this company.");
         }
 
         var removed = await endpointRepository.DeleteAsync(endpoint.Id, cancellationToken);
         if (!removed)
         {
-            logger.LogWarning($"Unsubscribe failed — could not delete endpoint {subscriberId}.");
+            logger.LogWarning("Unsubscribe failed — could not delete endpoint {SubscriberId}.", subscriberId);
             return Result.Failure<UnsubscribeResponse>("Failed to remove webhook endpoint.");
         }
 
-        logger.LogInformation($"Endpoint {subscriberId} unsubscribed for company {companyId}.");
+        logger.LogInformation("Endpoint {SubscriberId} unsubscribed for company {CompanyId}.", subscriberId, companyId);
         return Result.Success(new UnsubscribeResponse(subscriberId));
     }
 

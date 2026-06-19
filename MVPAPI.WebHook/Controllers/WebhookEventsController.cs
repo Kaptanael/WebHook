@@ -21,7 +21,7 @@ public class WebhookEventsController(
     public async Task<IActionResult> Publish([FromBody] PublishEventRequest request, CancellationToken cancellationToken)
     {
         var events = await eventService.PublishAsync(request, cancellationToken);
-        logger.LogInformation($"Publish: queued {events.Count} event(s) for event type {request.EventType}.");
+        logger.LogInformation("Publish: queued {EventCount} event(s) for event type {EventType}.", events.Count, request.EventType);
         return Ok(events);
     }
 

@@ -47,7 +47,7 @@ public class AccountApiClient(
 
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning($"GetToken: HTTP {(int)response.StatusCode} from token endpoint for company {companyId}. Response: {content}");
+                logger.LogWarning("GetToken: HTTP {StatusCode} from token endpoint for company {CompanyId}. Response: {Content}", (int)response.StatusCode, companyId, content);
                 return Result<TokenResponse>.Failure($"Token request failed: {response.StatusCode} - {content}");
             }
 
@@ -56,17 +56,17 @@ public class AccountApiClient(
 
             if (tokenResponse is null)
             {
-                logger.LogWarning($"GetToken: failed to deserialize token response for company {companyId}.");
+                logger.LogWarning("GetToken: failed to deserialize token response for company {CompanyId}.", companyId);
                 return Result<TokenResponse>.Failure("Failed to deserialize token response.");
             }
 
             if (!tokenResponse.Success)
             {
-                logger.LogWarning($"GetToken: token endpoint returned error for company {companyId}: {tokenResponse.Error}");
+                logger.LogWarning("GetToken: token endpoint returned error for company {CompanyId}: {Error}", companyId, tokenResponse.Error);
                 return Result<TokenResponse>.Failure($"Token error: {tokenResponse.Error}");
             }
 
-            logger.LogInformation($"GetToken: token acquired successfully for company {companyId}.");
+            logger.LogInformation("GetToken: token acquired successfully for company {CompanyId}.", companyId);
             return Result<TokenResponse>.Success(tokenResponse);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -75,7 +75,7 @@ public class AccountApiClient(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, $"GetToken: unexpected error requesting token for company {companyId}.");
+            logger.LogError(ex, "GetToken: unexpected error requesting token for company {CompanyId}.", companyId);
             return Result<TokenResponse>.Failure($"Token request errored: {ex.Message}");
         }
     }
@@ -110,7 +110,7 @@ public class AccountApiClient(
 
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning($"GetRefreshToken: HTTP {(int)response.StatusCode} from token endpoint. Response: {content}");
+                logger.LogWarning("GetRefreshToken: HTTP {StatusCode} from token endpoint. Response: {Content}", (int)response.StatusCode, content);
                 return Result<TokenResponse>.Failure($"Refresh token request failed: {response.StatusCode} - {content}");
             }
 
@@ -125,7 +125,7 @@ public class AccountApiClient(
 
             if (!tokenResponse.Success)
             {
-                logger.LogWarning($"GetRefreshToken: token endpoint returned error: {tokenResponse.Error}");
+                logger.LogWarning("GetRefreshToken: token endpoint returned error: {Error}", tokenResponse.Error);
                 return Result<TokenResponse>.Failure($"Refresh token error: {tokenResponse.Error}");
             }
 

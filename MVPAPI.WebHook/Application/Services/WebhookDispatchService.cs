@@ -71,18 +71,18 @@ public class WebhookDispatchService(
         var endpoint = await endpointRepository.GetByIdAsync(webhookEvent.WebhookId, cancellationToken);
         if (endpoint is null)
         {
-            logger.LogWarning($"Event {webhookEvent.Id}: endpoint {webhookEvent.WebhookId} no longer exists; skipping delivery.");
+            logger.LogWarning("Event {EventId}: endpoint {EndpointId} no longer exists; skipping delivery.", webhookEvent.Id, webhookEvent.WebhookId);
             return DeliveryResult.Fail("Endpoint no longer exists for the event.");
         }
 
         var connection = await connectionRepository.GetByClientTokenAsync(endpoint.EndPointToken, cancellationToken);
         if (connection is null)
         {
-            logger.LogWarning($"Event {webhookEvent.Id}: connection for endpoint {endpoint.Id} no longer exists; skipping delivery.");
+            logger.LogWarning("Event {EventId}: connection for endpoint {EndpointId} no longer exists; skipping delivery.", webhookEvent.Id, endpoint.Id);
             return DeliveryResult.Fail("Connection no longer exists for the endpoint.");
         }
 
-        logger.LogInformation($"Delivering event {webhookEvent.Id} (type {webhookEvent.EventType}) to {endpoint.Endpoint}.");
+        logger.LogInformation("Delivering event {EventId} (type {EventType}) to {Endpoint}.", webhookEvent.Id, webhookEvent.EventType, endpoint.Endpoint);
 
         var delivery = new WebhookDelivery(
             webhookEvent.Id,
@@ -98,17 +98,17 @@ public class WebhookDispatchService(
         if (!result.IsUnauthorized)
         {
             if (!result.Success)
-                logger.LogWarning($"Delivery failed for event {webhookEvent.Id}: {result.Error}");
+                logger.LogWarning("Delivery failed for event {EventId}: {Error}", webhookEvent.Id, result.Error);
             return result;
         }
 
         // Bearer token expired — refresh and retry once.
-        logger.LogInformation($"Received 401 for event {webhookEvent.Id}; attempting token refresh.");
+        logger.LogInformation("Received 401 for event {EventId}; attempting token refresh.", webhookEvent.Id);
 
         var decodeResult = tokenDecoder.Decode(endpoint.EndPointToken);
         if (!decodeResult.IsSuccess)
         {
-            logger.LogWarning($"Token refresh aborted for event {webhookEvent.Id} — could not decode endpoint token: {decodeResult.Error}");
+            logger.LogWarning("Token refresh aborted for event {EventId} — could not decode endpoint token: {Error}", webhookEvent.Id, decodeResult.Error);
             return DeliveryResult.Fail($"Token refresh aborted — could not decode endpoint token: {decodeResult.Error}");
         }
 
@@ -122,7 +122,7 @@ public class WebhookDispatchService(
 
         if (!refreshResult.IsSuccess)
         {
-            logger.LogWarning($"Token refresh failed for event {webhookEvent.Id}: {refreshResult.Error}");
+            logger.LogWarning("Token refresh failed for event {EventId}: {Error}", webhookEvent.Id, refreshResult.Error);
             return DeliveryResult.Fail($"Token refresh failed: {refreshResult.Error}");
         }
 
@@ -132,7 +132,7 @@ public class WebhookDispatchService(
         connection.MVPApiExpiresIn = newToken.ExpiresIn;
         await connectionRepository.UpdateAsync(connection, cancellationToken);
 
-        logger.LogInformation($"Token refreshed for event {webhookEvent.Id}; retrying delivery.");
+        logger.LogInformation("Token refreshed for event {EventId}; retrying delivery.", webhookEvent.Id);
         return await deliveryClient.DeliverAsync(delivery with { MVPApiToken = newToken.Token }, cancellationToken);
     }
 }

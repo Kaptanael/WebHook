@@ -54,13 +54,13 @@ public class WebhookEventLifecycleService(
         {
             webhookEvent.Status = EventStatus.Failed;
             webhookEvent.NextAttemptAtUtc = null;
-            logger.LogWarning($"Event {id} permanently failed after {webhookEvent.Attempts} attempt(s). Last error: {error}");
+            logger.LogWarning("Event {EventId} permanently failed after {Attempts} attempt(s). Last error: {Error}", id, webhookEvent.Attempts, error);
         }
         else
         {
             webhookEvent.Status = EventStatus.Retrying;
             webhookEvent.NextAttemptAtUtc = DateTime.UtcNow.AddMinutes(Math.Pow(2, webhookEvent.Attempts - 1));
-            logger.LogInformation($"Event {id} attempt {webhookEvent.Attempts}/{MaxAttempts} failed; retrying at {webhookEvent.NextAttemptAtUtc:O}. Error: {error}");
+            logger.LogInformation("Event {EventId} attempt {Attempts}/{MaxAttempts} failed; retrying at {NextAttempt:O}. Error: {Error}", id, webhookEvent.Attempts, MaxAttempts, webhookEvent.NextAttemptAtUtc, error);
         }
 
         await eventRepository.UpdateAsync(webhookEvent, cancellationToken);

@@ -29,24 +29,24 @@ public class WebhookEventService(
         string timestamp,
         CancellationToken cancellationToken = default)
     {
-        var headerError = signatureVerifier.ValidateHeaders(timestamp, signature, token);
-        if (headerError is not null)
+        var headerResult = signatureVerifier.ValidateHeaders(timestamp, signature, token);
+        if (!headerResult.IsSuccess)
         {
-            logger.LogWarning($"Event rejected — invalid headers: {headerError}");
-            return Result.Failure<IReadOnlyList<EventResponse>>(headerError);
+            logger.LogWarning("Event rejected — invalid headers: {Error}", headerResult.Error);
+            return Result.Failure<IReadOnlyList<EventResponse>>(headerResult.Error!);
         }
 
         var connectionResult = await connectionManager.EnsureConnectionAsync(token, cancellationToken);
         if (!connectionResult.IsSuccess)
         {
-            logger.LogWarning($"Event rejected — connection failed: {connectionResult.Error}");
+            logger.LogWarning("Event rejected — connection failed: {Error}", connectionResult.Error);
             return Result.Failure<IReadOnlyList<EventResponse>>(connectionResult.Error!);
         }
 
         var decodeResult = tokenDecoder.Decode(token);
         if (!decodeResult.IsSuccess)
         {
-            logger.LogWarning($"Event rejected — token decode failed: {decodeResult.Error}");
+            logger.LogWarning("Event rejected — token decode failed: {Error}", decodeResult.Error);
             return Result.Failure<IReadOnlyList<EventResponse>>(decodeResult.Error!);
         }
 
@@ -57,10 +57,11 @@ public class WebhookEventService(
             return Result.Failure<IReadOnlyList<EventResponse>>("Payload cannot be empty.");
         }
 
-        if (!signatureVerifier.VerifySignature(decodeResult.Value!.ApiKey, timestamp, rawPayload, signature))
+        var signatureResult = signatureVerifier.VerifySignature(decodeResult.Value!.ApiKey, timestamp, rawPayload, signature);
+        if (!signatureResult.IsSuccess)
         {
-            logger.LogWarning($"Event rejected — HMAC signature mismatch for event type {request.EventType}.");
-            return Result.Failure<IReadOnlyList<EventResponse>>("Invalid signature.");
+            logger.LogWarning("Event rejected — HMAC signature mismatch for event type {EventType}.", request.EventType);
+            return Result.Failure<IReadOnlyList<EventResponse>>(signatureResult.Error!);
         }
 
         var connection = connectionResult.Value!;
@@ -71,12 +72,12 @@ public class WebhookEventService(
 
         if (endpoints.Count == 0)
         {
-            logger.LogInformation($"No active endpoints for company {connection.CompanyId} with event type {request.EventType}; skipping.");
+            logger.LogInformation("No active endpoints for company {CompanyId} with event type {EventType}; skipping.", connection.CompanyId, request.EventType);
             return Result.Success<IReadOnlyList<EventResponse>>([]);
         }
 
         var events = await FanOutAndPersistAsync(endpoints, request.Client, request.EventType, rawPayload, cancellationToken);
-        logger.LogInformation($"Queued {events.Count} event(s) for company {connection.CompanyId} with event type {request.EventType}.");
+        logger.LogInformation("Queued {EventCount} event(s) for company {CompanyId} with event type {EventType}.", events.Count, connection.CompanyId, request.EventType);
         return Result.Success<IReadOnlyList<EventResponse>>(mapper.Map<List<EventResponse>>(events));
     }
 
@@ -88,12 +89,12 @@ public class WebhookEventService(
         var endpoints = await endpointRepository.GetByCompanyIdAsync(connection.CompanyId, cancellationToken);
         if (endpoints.Count == 0)
         {
-            logger.LogInformation($"No endpoints for company {connection.CompanyId}; nothing to publish.");
+            logger.LogInformation("No endpoints for company {CompanyId}; nothing to publish.", connection.CompanyId);
             return [];
         }
 
         var events = await FanOutAndPersistAsync(endpoints, request.Provider, request.EventType, request.Payload, cancellationToken);
-        logger.LogInformation($"Published {events.Count} event(s) for company {connection.CompanyId} with event type {request.EventType}.");
+        logger.LogInformation("Published {EventCount} event(s) for company {CompanyId} with event type {EventType}.", events.Count, connection.CompanyId, request.EventType);
         return mapper.Map<List<EventResponse>>(events);
     }
 
@@ -118,7 +119,7 @@ public class WebhookEventService(
         if (existing.Count > 0)
             return;
 
-        logger.LogInformation($"Auto-registering internal endpoint for company {companyId} with event type {eventType} -> {internalUrl}.");
+        logger.LogInformation("Auto-registering internal endpoint for company {CompanyId} with event type {EventType} -> {InternalUrl}.", companyId, eventType, internalUrl);
         await endpointRepository.AddAsync(new WebhookEndpoint
         {
             EndPointToken = token,

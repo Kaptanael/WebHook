@@ -18,7 +18,7 @@ public class HttpWebhookDeliveryClient(
             var tokenDecoderResult = tokenDecoder.Decode(delivery.EndpointToken);
             if (!tokenDecoderResult.IsSuccess)
             {
-                logger.LogWarning($"Failed to decode endpoint token for event {delivery.EventId}: {tokenDecoderResult.Error}");
+                logger.LogWarning("Failed to decode endpoint token for event {EventId}: {Error}", delivery.EventId, tokenDecoderResult.Error);
                 return DeliveryResult.Fail($"Failed to decode endpoint token: {tokenDecoderResult.Error}");
             }
 

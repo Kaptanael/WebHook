@@ -18,7 +18,7 @@ public class WebHookConnectionManager(
         var decodeResult = tokenDecoder.Decode(token);
         if (!decodeResult.IsSuccess)
         {
-            logger.LogWarning($"Connection refused — token decode failed: {decodeResult.Error}");
+            logger.LogWarning("Connection refused — token decode failed: {Error}", decodeResult.Error);
             return Result.Failure<WebHookConnection>(decodeResult.Error!);
         }
 
@@ -34,7 +34,7 @@ public class WebHookConnectionManager(
 
         if (!tokenResult.IsSuccess)
         {
-            logger.LogWarning($"Connection refused for company {decoded.CompanyId} — MVP API token request failed: {tokenResult.Error}");
+            logger.LogWarning("Connection refused for company {CompanyId} — MVP API token request failed: {Error}", decoded.CompanyId, tokenResult.Error);
             return Result.Failure<WebHookConnection>(tokenResult.Error!);
         }
 
@@ -43,7 +43,7 @@ public class WebHookConnectionManager(
         var existing = await connectionRepository.GetByClientTokenAsync(token, cancellationToken);
         if (existing is not null)
         {
-            logger.LogInformation($"Existing connection found for company {decoded.CompanyId}.");
+            logger.LogInformation("Existing connection found for company {CompanyId}.", decoded.CompanyId);
             return Result.Success(existing);
         }
 
@@ -59,7 +59,7 @@ public class WebHookConnectionManager(
         };
 
         await connectionRepository.AddAsync(connection, cancellationToken);
-        logger.LogInformation($"New connection created for company {decoded.CompanyId} with application {decoded.ApplicationName}.");
+        logger.LogInformation("New connection created for company {CompanyId} with application {ApplicationName}.", decoded.CompanyId, decoded.ApplicationName);
         return Result.Success(connection);
     }
 }

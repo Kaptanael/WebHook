@@ -1,3 +1,4 @@
+using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,28 +9,30 @@ public class WebhookSignatureVerifier : IWebhookSignatureVerifier
 {
     private const int TimestampToleranceSeconds = 300;
 
-    public string? ValidateHeaders(string timestamp, string signature, string token)
+    public Result ValidateHeaders(string timestamp, string signature, string token)
     {
         if (string.IsNullOrWhiteSpace(timestamp))
-            return "Missing X-Timestamp header.";
+            return Result.Failure("Missing X-Timestamp header.");
 
         if (!long.TryParse(timestamp, out var ts) ||
             Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts) > TimestampToleranceSeconds)
-            return "Request timestamp is invalid or expired.";
+            return Result.Failure("Request timestamp is invalid or expired.");
 
         if (string.IsNullOrWhiteSpace(signature))
-            return "Missing X-Signature header.";
+            return Result.Failure("Missing X-Signature header.");
 
         if (string.IsNullOrWhiteSpace(token))
-            return "Missing X-Endpoint-Token header.";
+            return Result.Failure("Missing X-Endpoint-Token header.");
 
-        return null;
+        return Result.Success();
     }
 
-    public bool VerifySignature(string apiKey, string timestamp, string rawPayload, string signature)
+    public Result VerifySignature(string apiKey, string timestamp, string rawPayload, string signature)
     {
         var expected = ComputeHmac(apiKey, $"{timestamp}.{rawPayload}");
-        return CryptographicEquals(expected, signature);
+        return CryptographicEquals(expected, signature)
+            ? Result.Success()
+            : Result.Failure("Invalid signature.");
     }
 
     private static string ComputeHmac(string secret, string message)
