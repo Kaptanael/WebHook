@@ -1,4 +1,4 @@
-namespace MVPAPI.WebHook.Domain.Entities;
+    namespace MVPAPI.WebHook.Domain.Entities;
 
 public class WebhookEndpoint
 {
@@ -11,6 +11,9 @@ public class WebhookEndpoint
     public int CompanyId { get; set; }
 
     public string TriggerConfigJson { get; set; } = string.Empty;
+
+    /// <summary>Standard Webhooks shared secret for verifying signatures sent against this endpoint.</summary>
+    public string SigningSecret { get; set; } = string.Empty;
 
     public bool IsActive { get; set; } = true;
 

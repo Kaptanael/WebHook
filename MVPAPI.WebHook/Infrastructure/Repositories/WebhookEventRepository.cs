@@ -29,7 +29,7 @@ public class WebhookEventRepository(IWebhookDbConnectionFactory connectionFactor
         return events.ToList();
     }
 
-    public async Task<WebhookEvent?> GetByWebhookAndKeyAsync(Guid id, string key, CancellationToken cancellationToken = default) 
+    public async Task<WebhookEvent?> GetByWebhookAndKeyAsync(Guid id, Guid key, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<WebhookEvent>(new CommandDefinition(

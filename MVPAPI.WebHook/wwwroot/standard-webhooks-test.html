@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Standard Webhooks Tester</title>
+<style>
+  :root { --bg:#0f1320; --card:#171c2e; --line:#2a3350; --fg:#e6e9f2; --muted:#9aa3bd; --accent:#5b8cff; --ok:#37d499; --err:#ff6b6b; --warn:#ffa94d; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+
+  header { padding:20px 24px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0 0 4px; font-size:18px; }
+  header p { margin:4px 0 0; color:var(--muted); font-size:13px; }
+
+  .wrap { max-width:1200px; margin:0 auto; padding:18px 24px; display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+  @media (max-width:1000px){ .wrap{ grid-template-columns:1fr; } }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px 20px; }
+  .card h2 { margin:0 0 12px; font-size:15px; }
+  .card .hint { color:var(--muted); margin:0 0 14px; font-size:12.5px; line-height:1.6; }
+
+  label { display:block; margin:12px 0 4px; font-size:12.5px; color:var(--muted); font-weight:600; }
+  input, textarea, select { width:100%; background:#0d1120; color:var(--fg); border:1px solid var(--line); border-radius:7px; padding:8px 10px; font:inherit; }
+  textarea { resize:vertical; min-height:80px; font-family:ui-monospace,Consolas,monospace; }
+
+  .row { display:flex; gap:10px; } .row > * { flex:1; }
+
+  .section-title { margin-top:16px; margin-bottom:8px; font-weight:700; color:var(--fg); font-size:13px; }
+
+  button { margin-top:14px; background:var(--accent); color:#fff; border:0; border-radius:7px; padding:10px 16px; font:inherit; font-weight:600; cursor:pointer; width:100%; }
+  button:hover { filter:brightness(1.08); } button:disabled { opacity:.6; cursor:default; }
+
+  .info-box { background:#0d1120; border-left:3px solid var(--accent); border-radius:7px; padding:10px 12px; margin:12px 0; font-size:12.5px; line-height:1.6; }
+  .info-box code { background:#171c2e; padding:1px 4px; border-radius:3px; }
+
+  .debug-panel { margin-top:14px; padding-top:14px; border-top:1px solid var(--line); }
+  .debug-step { margin:10px 0; font-size:12.5px; }
+  .debug-step .label { color:var(--muted); font-weight:600; }
+  .debug-step .value { background:#0d1120; border-radius:5px; padding:6px 8px; margin-top:3px; font-family:ui-monospace,Consolas,monospace; font-size:12px; word-break:break-all; }
+  .debug-step .value.hex { color:var(--accent); }
+
+  .out { margin-top:14px; border-top:1px solid var(--line); padding-top:12px; display:none; }
+  .out.show { display:block; }
+
+  .status { font-weight:700; } .status.ok { color:var(--ok); } .status.err { color:var(--err); } .status.progress { color:var(--warn); }
+
+  pre { background:#0d1120; border:1px solid var(--line); border-radius:7px; padding:10px; overflow:auto; margin:8px 0 0; max-height:280px; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; }
+
+  .topbar { padding:0 24px 4px; margin-bottom:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .topbar label { display:inline; margin:0; }
+  .topbar input { width:auto; min-width:300px; flex:1; min-width:200px; }
+
+  .tabs { display:flex; gap:8px; margin-bottom:12px; border-bottom:1px solid var(--line); }
+  .tab-btn { background:0; border:0; color:var(--muted); padding:10px 12px; cursor:pointer; border-bottom:2px solid transparent; font-size:13px; font-weight:600; }
+  .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-btn:hover { color:var(--fg); }
+
+  .tab-content { display:none; } .tab-content.active { display:block; }
+
+  .key-info { background:#0d1120; border-radius:7px; padding:10px; margin:8px 0; font-size:12.5px; }
+  .key-info .key-type { color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Standard Webhooks Tester</h1>
+  <p><strong>POST /api/inbound</strong> using <code>webhook-id</code>, <code>webhook-timestamp</code>, <code>webhook-signature</code> headers. Signature is computed in-browser to match the server's <code>StandardWebhookSigner</code>.</p>
+</header>
+
+<div class="topbar">
+  <label for="baseUrl">Base URL</label>
+  <input id="baseUrl" placeholder="(blank = same origin)" value="" />
+</div>
+
+<div class="wrap">
+  <!-- ===================== LEFT: INPUTS & SIGNING ===================== -->
+  <div class="card">
+    <h2>Signing Setup</h2>
+    <p class="hint">Standard Webhooks signs the request body with an HMAC-SHA256 key derived from your endpoint's <code>SigningSecret</code>. The signature is sent as three headers.</p>
+
+    <div class="section-title">Endpoint Secret</div>
+    <label>SigningSecret (endpoint config)</label>
+    <input id="secret" placeholder="whsec_... or raw secret" value="whsec_test1234567890abcdefghijklmnopqr" />
+    <div class="info-box" id="secretInfo">
+      <span class="key-type">Format:</span> Detected as <code>whsec_</code>-prefixed (base64-encoded binary)
+    </div>
+
+    <div class="section-title">Message Headers</div>
+    <label>webhook-id</label>
+    <input id="id" placeholder="(auto-generate if blank)" value="" />
+    <div class="hint">Unique message identifier. Auto-generated as <code>msg_&lt;random&gt;</code> if blank.</div>
+
+    <label>webhook-timestamp (unix seconds)</label>
+    <input id="timestamp" placeholder="(auto-generate if blank)" value="" />
+    <div class="hint">Current unix timestamp (seconds). Auto-generated if blank. Must not be >5 min in the past (300s tolerance).</div>
+
+    <div class="section-title">Payload</div>
+    <label>X-Event-Type</label>
+    <input id="eventType" value="order.created" />
+
+    <label>JSON body</label>
+    <textarea id="body">{"orderId":42,"amount":19.99}</textarea>
+    <div class="hint">Must be valid JSON. The exact bytes are signed, so no reformatting between signing and send.</div>
+
+    <button id="computeBtn">Compute Signature</button>
+
+    <!-- Debug: Show the signing process -->
+    <div id="debugPanel" class="debug-panel" style="display:none;">
+      <div style="color:var(--muted); font-weight:700; margin-bottom:8px; font-size:13px;">Signature Computation</div>
+
+      <div class="debug-step">
+        <div class="label">1. Secret Decoding</div>
+        <div id="debugSecret" class="value"></div>
+      </div>
+
+      <div class="debug-step">
+        <div class="label">2. Signed Content (<code>id.timestamp.body</code>)</div>
+        <div id="debugSigned" class="value" style="white-space:pre-wrap; word-break:break-word;"></div>
+      </div>
+
+      <div class="debug-step">
+        <div class="label">3. HMAC-SHA256 (hex)</div>
+        <div id="debugHmac" class="value hex"></div>
+      </div>
+
+      <div class="debug-step">
+        <div class="label">4. Base64</div>
+        <div id="debugB64" class="value"></div>
+      </div>
+
+      <div class="debug-step">
+        <div class="label">5. Final Header Value</div>
+        <div id="debugFinal" class="value" style="color:var(--ok);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== RIGHT: REQUEST & RESPONSE ===================== -->
+  <div class="card">
+    <h2>Send & Verify</h2>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="request">Request</button>
+      <button class="tab-btn" data-tab="response">Response</button>
+      <button class="tab-btn" data-tab="verify">Verify Signature</button>
+    </div>
+
+    <div id="request" class="tab-content active">
+      <p class="hint">Headers and body that will be sent to the server.</p>
+      <pre id="requestText" style="min-height:200px;">(compute signature first)</pre>
+      <button id="sendBtn" disabled>Send Request</button>
+    </div>
+
+    <div id="response" class="tab-content">
+      <p class="hint">Response from the server.</p>
+      <div class="out" id="responseOut">
+        <span class="status" id="responseStatus"></span>
+        <pre id="responseText"></pre>
+      </div>
+    </div>
+
+    <div id="verify" class="tab-content">
+      <p class="hint">Verify your signature against a known good one. Paste a <code>webhook-signature</code> header value to check.</p>
+      <label>Reference signature to verify</label>
+      <input id="refSig" placeholder="v1,base64..." />
+      <button id="verifyBtn">Verify Against Computed</button>
+      <div id="verifyOut" style="display:none; margin-top:12px;">
+        <span id="verifyResult" class="status"></span>
+      </div>
+    </div>
+
+    <div class="out" id="sendOut">
+      <p class="hint" style="margin-bottom:0;">Raw request sent and response received:</p>
+      <pre id="sendRaw"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const baseUrl = () => $('baseUrl').value.trim().replace(/\/$/, '') || '';
+
+// Detect secret format
+$('secret').addEventListener('input', () => updateSecretInfo());
+function updateSecretInfo() {
+  const secret = $('secret').value.trim();
+  const info = $('secretInfo');
+  if (secret.startsWith('whsec_')) {
+    info.innerHTML = '<span class="key-type">Format:</span> <code>whsec_</code>-prefixed (base64-encoded binary)';
+  } else if (secret) {
+    info.innerHTML = '<span class="key-type">Format:</span> Raw UTF-8 bytes';
+  } else {
+    info.innerHTML = '<span class="key-type" style="color:var(--err);">No secret entered</span>';
+  }
+}
+updateSecretInfo();
+
+// Key bytes: whsec_ → base64-decode, else raw UTF-8
+function keyBytes(secret) {
+  if (secret.startsWith('whsec_')) {
+    try {
+      const bin = atob(secret.slice(6));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return { bytes, format: 'whsec base64' };
+    } catch (e) {
+      return { error: `Failed to decode base64: ${e.message}` };
+    }
+  }
+  return { bytes: new TextEncoder().encode(secret), format: 'raw UTF-8' };
+}
+
+// Hex dump
+function toHex(arr) {
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Compute & display signature
+$('computeBtn').addEventListener('click', async () => {
+  $('debugPanel').style.display = 'block';
+
+  const secret = $('secret').value.trim();
+  const id = $('id').value.trim() || ('msg_' + Math.random().toString(36).slice(2, 12));
+  const ts = $('timestamp').value.trim() || Math.floor(Date.now() / 1000).toString();
+  const body = $('body').value;
+
+  $('id').value = id;
+  $('timestamp').value = ts;
+
+  // Step 1: Key bytes
+  const keyInfo = keyBytes(secret);
+  if (keyInfo.error) {
+    $('debugSecret').textContent = keyInfo.error;
+    $('debugSecret').style.color = 'var(--err)';
+    return;
+  }
+  const key = keyInfo.bytes;
+  $('debugSecret').textContent = `${keyInfo.format}: ${toHex(key)} (${key.length} bytes)`;
+  $('debugSecret').style.color = 'var(--ok)';
+
+  // Step 2: Signed content
+  const signed = `${id}.${ts}.${body}`;
+  $('debugSigned').textContent = signed;
+
+  // Step 3: HMAC-SHA256
+  try {
+    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const mac = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(signed));
+    const hex = toHex(new Uint8Array(mac));
+    $('debugHmac').textContent = hex;
+
+    // Step 4: Base64
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(mac)));
+    $('debugB64').textContent = b64;
+
+    // Step 5: Final header
+    const sig = `v1,${b64}`;
+    $('debugFinal').textContent = sig;
+
+    // Update request display
+    $('requestText').textContent =
+      `POST /api/inbound\n` +
+      `Content-Type: application/json\n` +
+      `X-Event-Type: ${$('eventType').value}\n` +
+      `webhook-id: ${id}\n` +
+      `webhook-timestamp: ${ts}\n` +
+      `webhook-signature: ${sig}\n\n` +
+      body;
+
+    $('sendBtn').disabled = false;
+  } catch (e) {
+    $('debugHmac').textContent = 'Error: ' + e.message;
+    $('debugHmac').style.color = 'var(--err)';
+  }
+});
+
+// Send request
+$('sendBtn').addEventListener('click', async () => {
+  const secret = $('secret').value.trim();
+  const id = $('id').value.trim();
+  const ts = $('timestamp').value.trim();
+  const body = $('body').value;
+
+  // Re-compute signature
+  const keyInfo = keyBytes(secret);
+  if (keyInfo.error) {
+    alert('Invalid secret: ' + keyInfo.error);
+    return;
+  }
+
+  const signed = `${id}.${ts}.${body}`;
+  const cryptoKey = await crypto.subtle.importKey('raw', keyInfo.bytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(signed));
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(mac)));
+  const sig = `v1,${b64}`;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Event-Type': $('eventType').value,
+    'webhook-id': id,
+    'webhook-timestamp': ts,
+    'webhook-signature': sig,
+  };
+
+  $('sendOut').classList.add('show');
+  $('responseStatus').textContent = 'Sending…'; $('responseStatus').className = 'status progress';
+  $('responseText').textContent = '';
+
+  try {
+    const res = await fetch(baseUrl() + '/api/inbound', { method: 'POST', headers, body });
+    const text = await res.text();
+    let pretty = text;
+    try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+
+    $('responseStatus').textContent = `${res.status} ${res.statusText}`;
+    $('responseStatus').className = 'status ' + (res.ok ? 'ok' : 'err');
+    $('responseText').textContent = pretty || '(empty body)';
+
+    const reqLog = `POST /api/inbound\n` + Object.entries(headers).map(([k, v]) => `${k}: ${v}`).join('\n') + `\n\n${body}`;
+    $('sendRaw').textContent = `=== REQUEST ===\n${reqLog}\n\n=== RESPONSE ===\n${res.status} ${res.statusText}\n${text}`;
+  } catch (e) {
+    $('responseStatus').textContent = 'Request failed'; $('responseStatus').className = 'status err';
+    $('responseText').textContent = String(e);
+  }
+});
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    $(btn.dataset.tab).classList.add('active');
+  });
+});
+
+// Verify signature
+$('verifyBtn').addEventListener('click', async () => {
+  const ref = $('refSig').value.trim();
+  const computed = $('debugFinal').textContent.trim();
+
+  $('verifyOut').style.display = 'block';
+  const result = $('verifyResult');
+
+  if (!computed) {
+    result.textContent = 'Compute signature first';
+    result.className = 'status err';
+    return;
+  }
+
+  if (!ref) {
+    result.textContent = 'Paste a reference signature to verify';
+    result.className = 'status err';
+    return;
+  }
+
+  if (computed === ref) {
+    result.textContent = '✓ Signatures match';
+    result.className = 'status ok';
+  } else {
+    result.textContent = '✗ Signatures do NOT match';
+    result.className = 'status err';
+    result.innerHTML += `<pre style="margin-top:8px; font-size:12px;">Computed: ${computed}\nReference: ${ref}</pre>`;
+  }
+});
+</script>
+</body>
+</html>

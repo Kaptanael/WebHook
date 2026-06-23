@@ -16,5 +16,5 @@ public class WebhookEvent
     public DateTime? NextAttemptAtUtc { get; set; }
     public DateTime? ProcessingStartedAtUtc { get; set; }
     public DateTime? ProcessedAtUtc { get; set; }
-    public string IdempotencyKey { get; set; } = string.Empty;
+    public Guid IdempotencyKey { get; set; }
 }

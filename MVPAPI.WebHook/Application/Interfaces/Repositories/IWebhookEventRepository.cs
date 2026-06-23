@@ -9,7 +9,7 @@ public interface IWebhookEventRepository
     Task<WebhookEvent?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WebhookEvent>> GetByEndpointIdAsync(Guid webhookId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WebhookEvent>> GetDueForProcessingAsync(int batchSize, DateTime nowUtc, CancellationToken cancellationToken = default);
-    Task<WebhookEvent?> GetByWebhookAndKeyAsync(Guid id, string key, CancellationToken cancellationToken = default);
+    Task<WebhookEvent?> GetByWebhookAndKeyAsync(Guid id, Guid key, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Atomically claims up to <paramref name="batchSize"/> due events by marking them Processing.

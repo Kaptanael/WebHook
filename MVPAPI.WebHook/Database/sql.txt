@@ -99,8 +99,8 @@ ALTER TABLE [dbo].[WebhookEvents] ADD  CONSTRAINT [DF__WebhookEv__Attem__74794A9
 GO
 ALTER TABLE [dbo].[WebhookEvents] ADD  CONSTRAINT [DF__WebhookEv__Recei__756D6ECB]  DEFAULT (getutcdate()) FOR [ReceivedAtUtc]
 GO
-ALTER TABLE [dbo].[WebhookEvents]  WITH CHECK ADD  CONSTRAINT [FK_WebhookEvents_WebHookConnection] FOREIGN KEY([WebhookId])
-REFERENCES [dbo].[WebHookConnection] ([Id])
+ALTER TABLE [dbo].[WebhookEvents]  WITH CHECK ADD  CONSTRAINT [FK_WebhookEvents_WebhookEndpoints] FOREIGN KEY([WebhookId])
+REFERENCES [dbo].[WebhookEndpoints] ([Id])
 GO
-ALTER TABLE [dbo].[WebhookEvents] CHECK CONSTRAINT [FK_WebhookEvents_WebHookConnection]
+ALTER TABLE [dbo].[WebhookEvents] CHECK CONSTRAINT [FK_WebhookEvents_WebhookEndpoints]
 GO

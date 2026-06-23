@@ -8,3 +8,7 @@ public interface IDbConnectionFactory
 }
 
 public interface IWebhookDbConnectionFactory : IDbConnectionFactory { }
+
+/// <summary>Connects to the external PortalDB, source of the <c>ApiKeys</c> rows whose
+/// <c>Salt</c> is the shared secret for inbound Standard Webhooks signature verification.</summary>
+public interface IPortalDbConnectionFactory : IDbConnectionFactory { }
