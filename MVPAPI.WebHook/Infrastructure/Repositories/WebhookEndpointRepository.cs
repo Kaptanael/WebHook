@@ -34,13 +34,6 @@ public class WebhookEndpointRepository(IWebhookDbConnectionFactory connectionFac
             $"{SelectColumns} WHERE Endpoint = @Endpoint", new { Endpoint = endpoint }, cancellationToken: cancellationToken));
     }
 
-    public async Task<WebhookEndpoint?> GetByEndpointTokenAsync(string endpointToken, CancellationToken cancellationToken = default)
-    {
-        await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
-        return await connection.QuerySingleOrDefaultAsync<WebhookEndpoint>(new CommandDefinition(
-            $"{SelectColumns} WHERE EndPointToken = @EndPointToken", new { EndPointToken = endpointToken }, cancellationToken: cancellationToken));
-    }
-
     public async Task<IReadOnlyList<WebhookEndpoint>> GetByCompanyIdAsync(int companyId, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);

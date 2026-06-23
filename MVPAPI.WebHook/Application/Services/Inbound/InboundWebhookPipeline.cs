@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using MVPAPI.WebHook.Application.DTOs.Events;
 using MVPAPI.WebHook.Application.Interfaces.Inbound;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
 using MVPAPI.WebHook.Application.Interfaces.Services;

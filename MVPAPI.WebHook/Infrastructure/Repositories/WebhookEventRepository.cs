@@ -21,21 +21,6 @@ public class WebhookEventRepository(IWebhookDbConnectionFactory connectionFactor
             $"{SelectColumns} WHERE Id = @Id", new { Id = id }, cancellationToken: cancellationToken));
     }
 
-    public async Task<IReadOnlyList<WebhookEvent>> GetByEndpointIdAsync(Guid webhookId, CancellationToken cancellationToken = default)
-    {
-        await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
-        var events = await connection.QueryAsync<WebhookEvent>(new CommandDefinition(
-            $"{SelectColumns} WHERE WebhookId = @WebhookId", new { WebhookId = webhookId }, cancellationToken: cancellationToken));
-        return events.ToList();
-    }
-
-    public async Task<WebhookEvent?> GetByWebhookAndKeyAsync(Guid id, Guid key, CancellationToken cancellationToken = default)
-    {
-        await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
-        return await connection.QuerySingleOrDefaultAsync<WebhookEvent>(new CommandDefinition(
-            $"{SelectColumns} WHERE Id = @Id AND IdempotencyKey = @IdempotencyKey", new { Id = id, IdempotencyKey = key }, cancellationToken: cancellationToken));
-    }
-
     public async Task<IReadOnlyList<WebhookEvent>> GetDueForProcessingAsync(int batchSize, DateTime nowUtc, CancellationToken cancellationToken = default)
     {
         const string sql = """
