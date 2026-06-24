@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
 using MVPAPI.WebHook.Application.Services;
 using MVPAPI.WebHook.Domain.Entities;
@@ -16,6 +18,7 @@ public class WebhookEventLifecycleServiceTests
     {
         _sut = new WebhookEventLifecycleService(
             _repo,
+            Options.Create(new WebhookDispatchOptions()),
             Substitute.For<ILogger<WebhookEventLifecycleService>>());
     }
 
@@ -71,12 +74,12 @@ public class WebhookEventLifecycleServiceTests
     }
 
     [Theory]
-    [InlineData(0, 1)]   // 1st failure  -> attempt 1 -> 2^0 = 1 minute
-    [InlineData(1, 2)]   // 2nd failure  -> attempt 2 -> 2^1 = 2 minutes
-    [InlineData(2, 4)]   // 3rd failure  -> attempt 3 -> 2^2 = 4 minutes
-    [InlineData(3, 8)]   // 4th failure  -> attempt 4 -> 2^3 = 8 minutes
-    public async Task MarkFailed_BelowMax_SetsRetryingWithExponentialBackoff(
-        int startingAttempts, double expectedMinutes)
+    [InlineData(0, 60)]    // attempt 1 -> base 60 * 2^0 = 60s,  jittered to [30, 60]
+    [InlineData(1, 120)]   // attempt 2 -> 120s, jittered to [60, 120]
+    [InlineData(2, 240)]   // attempt 3 -> 240s, jittered to [120, 240]
+    [InlineData(3, 480)]   // attempt 4 -> 480s, jittered to [240, 480]
+    public async Task MarkFailed_BelowMax_SetsRetryingWithJitteredExponentialBackoff(
+        int startingAttempts, double baseSeconds)
     {
         var webhookEvent = ArrangeExisting(new WebhookEvent
         {
@@ -94,10 +97,26 @@ public class WebhookEventLifecycleServiceTests
         Assert.Equal(startingAttempts + 1, webhookEvent.Attempts);
         Assert.Equal("boom", webhookEvent.LastError);
         Assert.NotNull(webhookEvent.NextAttemptAtUtc);
+        // Equal jitter: delay is between base/2 and base.
         Assert.InRange(
             webhookEvent.NextAttemptAtUtc!.Value,
-            before.AddMinutes(expectedMinutes),
-            after.AddMinutes(expectedMinutes));
+            before.AddSeconds(baseSeconds / 2.0),
+            after.AddSeconds(baseSeconds));
+    }
+
+    [Fact]
+    public async Task MarkFailed_AppliesJitter_DelaysVaryAcrossCalls()
+    {
+        var offsets = new HashSet<long>();
+        for (var i = 0; i < 8; i++)
+        {
+            var e = ArrangeExisting(new WebhookEvent { Id = Guid.NewGuid(), Attempts = 3, Status = EventStatus.Processing });
+            var before = DateTime.UtcNow;
+            await _sut.MarkFailedAsync(e.Id, "x");
+            offsets.Add((long)(e.NextAttemptAtUtc!.Value - before).TotalMilliseconds);
+        }
+
+        Assert.True(offsets.Count > 1, "jitter should produce varying retry delays");
     }
 
     [Fact]
