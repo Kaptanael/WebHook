@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using MVPAPI.WebHook.Application.Common;
 using MVPAPI.WebHook.Application.Interfaces;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
 using MVPAPI.WebHook.Application.Interfaces.Services;
@@ -14,6 +16,7 @@ public class WebhookDispatchService(
     IWebhookDeliveryClient deliveryClient,
     ITokenDecoder tokenDecoder,
     IAccountApiClient accountApiClient,
+    IOptions<WebhookDispatchOptions> options,
     ILogger<WebhookDispatchService> logger) : IWebhookDispatchService
 {
     public async Task<DispatchSummary> DispatchDueEventsAsync(int batchSize, CancellationToken cancellationToken = default)
@@ -26,24 +29,31 @@ public class WebhookDispatchService(
             return new DispatchSummary(0, 0, 0);
         }
 
+        // Deliver up to MaxDeliveryConcurrency events at once so one slow endpoint can't stall the whole
+        // batch. Each delivery uses its own DB connection (Dapper opens per call) and the shared HttpClient
+        // is thread-safe, so concurrent delivery is safe. Outcomes are counted lock-free.
         var delivered = 0;
         var failed = 0;
+        var maxConcurrency = Math.Max(1, options.Value.MaxDeliveryConcurrency);
 
-        foreach (var webhookEvent in claimedEvents)
-        {
-            var result = await DeliverAsync(webhookEvent, cancellationToken);
+        await Parallel.ForEachAsync(
+            claimedEvents,
+            new ParallelOptions { MaxDegreeOfParallelism = maxConcurrency, CancellationToken = cancellationToken },
+            async (webhookEvent, ct) =>
+            {
+                var result = await DeliverAsync(webhookEvent, ct);
 
-            if (result.Success)
-            {
-                await eventLifecycle.MarkCompletedAsync(webhookEvent.Id, cancellationToken);
-                delivered++;
-            }
-            else
-            {
-                await eventLifecycle.MarkFailedAsync(webhookEvent.Id, result.Error ?? "Delivery failed.", cancellationToken);
-                failed++;
-            }
-        }
+                if (result.Success)
+                {
+                    await eventLifecycle.MarkCompletedAsync(webhookEvent.Id, ct);
+                    Interlocked.Increment(ref delivered);
+                }
+                else
+                {
+                    await eventLifecycle.MarkFailedAsync(webhookEvent.Id, result.Error ?? "Delivery failed.", ct);
+                    Interlocked.Increment(ref failed);
+                }
+            });
 
         return new DispatchSummary(claimedEvents.Count, delivered, failed);
     }
