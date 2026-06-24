@@ -98,9 +98,9 @@
     <div class="hint">Unix timestamp (seconds). Auto-generated if blank. Must be within 5 min (300s tolerance).</div>
 
     <div class="section-title">Payload</div>
-    <label>X-Event-Type</label>
+    <label>X-Event-Type <span style="font-weight:400;">(optional)</span></label>
     <input id="eventType" value="door.manual" />
-    <div class="hint">Must be a routed type (<code>door.manual</code> or <code>relay.manual</code>) to provision/deliver.</div>
+    <div class="hint">Optional. If the JSON body has a top-level <code>type</code> (Standard Webhooks envelope), that wins and this header is ignored — leave it blank. Otherwise the event type comes from here. Must resolve to a routed type (<code>door.manual</code> / <code>relay.manual</code>) to provision/deliver.</div>
 
     <label>JSON body</label>
     <textarea id="body">{"companyId":500646,"actionType":"Lock","strikeTimeOverrideInSeconds":67,"doorIds":["335ACAD0-D282-4761-992C-6A50F29DA777"]}</textarea>
@@ -223,11 +223,12 @@ $('computeBtn').addEventListener('click', async () => {
     const sig = `v1,${b64}`;
     $('debugFinal').textContent = sig;
 
+    const evtLine = $('eventType').value.trim() ? `X-Event-Type: ${$('eventType').value.trim()}\n` : '';
     $('requestText').textContent =
       `POST /api/inbound\n` +
       `Content-Type: application/json\n` +
       `X-Api-Key: ${$('apiKey').value}\n` +
-      `X-Event-Type: ${$('eventType').value}\n` +
+      evtLine +
       `webhook-id: ${id}\n` +
       `webhook-timestamp: ${ts}\n` +
       `webhook-signature: ${sig}\n\n` + body;
@@ -253,11 +254,12 @@ $('sendBtn').addEventListener('click', async () => {
   const headers = {
     'Content-Type': 'application/json',
     'X-Api-Key': $('apiKey').value.trim(),
-    'X-Event-Type': $('eventType').value,
     'webhook-id': id,
     'webhook-timestamp': ts,
     'webhook-signature': sig,
   };
+  // X-Event-Type is optional — omit when blank so the body's "type" (Standard Webhooks envelope) is used.
+  if ($('eventType').value.trim()) headers['X-Event-Type'] = $('eventType').value.trim();
 
   $('sendOut').classList.add('show');
   $('responseStatus').textContent = 'Sending…'; $('responseStatus').className = 'status progress';
