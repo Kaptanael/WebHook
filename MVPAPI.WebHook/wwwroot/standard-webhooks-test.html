@@ -62,7 +62,7 @@
 <body>
 <header>
   <h1>Standard Webhooks Tester</h1>
-  <p><strong>POST /api/inbound</strong> with <code>X-Api-Key</code> + <code>webhook-id</code>, <code>webhook-timestamp</code>, <code>webhook-signature</code> headers. Signature is computed in-browser to match the server's <code>StandardWebhookSigner</code> (keyed by <code>whsec_</code>+the key's Salt). Token-based tester: <a href="webhook-test.html">webhook-test.html</a></p>
+  <p><strong>POST /api/inbound</strong> with <code>x-api-key</code> + <code>webhook-id</code>, <code>webhook-timestamp</code>, <code>webhook-signature</code> headers. Signature is computed in-browser to match the server's <code>StandardWebhookSigner</code> (keyed by <code>whsec_</code>+the key's Salt). Token-based tester: <a href="webhook-test.html">webhook-test.html</a></p>
 </header>
 
 <div class="topbar">
@@ -77,9 +77,9 @@
     <p class="hint">Standard Webhooks signs the request body with an HMAC-SHA256 key derived from your endpoint's <code>SigningSecret</code>. The signature is sent as three headers.</p>
 
     <div class="section-title">API Key</div>
-    <label>X-Api-Key (selects the PortalDB key row)</label>
+    <label>x-api-key (selects the PortalDB key row)</label>
     <input id="apiKey" placeholder="raw api-key" value="447bfa78f56a442693a4e079f006df50-8349d2ab2e1f46e2bd7e3918b3dd95bd" />
-    <div class="hint">Sent as <code>X-Api-Key</code>. The server keys the HMAC with <code>whsec_</code>+ that key's Salt — enter the Salt below.</div>
+    <div class="hint">Sent as <code>x-api-key</code>. The server keys the HMAC with <code>whsec_</code>+ that key's Salt — enter the Salt below.</div>
 
     <div class="section-title">Endpoint Secret</div>
     <label>SigningSecret (the key's Salt; whsec_-prefixed = base64 key)</label>
@@ -227,7 +227,7 @@ $('computeBtn').addEventListener('click', async () => {
     $('requestText').textContent =
       `POST /api/inbound\n` +
       `Content-Type: application/json\n` +
-      `X-Api-Key: ${$('apiKey').value}\n` +
+      `x-api-key: ${$('apiKey').value}\n` +
       evtLine +
       `webhook-id: ${id}\n` +
       `webhook-timestamp: ${ts}\n` +
@@ -253,7 +253,7 @@ $('sendBtn').addEventListener('click', async () => {
 
   const headers = {
     'Content-Type': 'application/json',
-    'X-Api-Key': $('apiKey').value.trim(),
+    'x-api-key': $('apiKey').value.trim(),
     'webhook-id': id,
     'webhook-timestamp': ts,
     'webhook-signature': sig,
