@@ -12,4 +12,6 @@ public interface IWebhookEventService
     Task<EventResponse> PublishToEndpointAsync(WebhookEndpoint endpoint, string eventType, string payload, string? provider, CancellationToken cancellationToken = default);
     Task<EventResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<EventResponse>> GetDueForProcessingAsync(int batchSize, CancellationToken cancellationToken = default);
+    /// <summary>The most recent permanently-Failed events (dead-letter view).</summary>
+    Task<IReadOnlyList<EventResponse>> GetFailedAsync(int limit, CancellationToken cancellationToken = default);
 }

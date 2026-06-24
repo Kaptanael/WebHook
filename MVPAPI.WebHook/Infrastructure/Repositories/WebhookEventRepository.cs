@@ -21,6 +21,47 @@ public class WebhookEventRepository(IWebhookDbConnectionFactory connectionFactor
             $"{SelectColumns} WHERE Id = @Id", new { Id = id }, cancellationToken: cancellationToken));
     }
 
+    public async Task<IReadOnlyList<WebhookEvent>> GetByStatusAsync(EventStatus status, int limit, CancellationToken cancellationToken = default)
+    {
+        var sql = $"""
+            SELECT TOP (@Limit) Id, WebhookId, Provider, EventType, Payload, Status, Attempts, LastError,
+                   ReceivedAtUtc, NextAttemptAtUtc, ProcessingStartedAtUtc, ProcessedAtUtc, IdempotencyKey
+            FROM WebhookEvents
+            WHERE Status = @Status
+            ORDER BY ReceivedAtUtc DESC
+            """;
+
+        await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        var events = await connection.QueryAsync<WebhookEvent>(new CommandDefinition(
+            sql, new { Limit = limit, Status = (byte)status }, cancellationToken: cancellationToken));
+        return events.ToList();
+    }
+
+    public async Task<bool> RequeueFailedAsync(Guid id, DateTime nowUtc, CancellationToken cancellationToken = default)
+    {
+        // Only Failed events are requeued; LastError is kept for history. NextAttemptAtUtc is set to now
+        // so the dispatcher (which requires NextAttemptAtUtc <= now) picks it up on the next poll.
+        const string sql = """
+            UPDATE WebhookEvents
+            SET Status                 = @Pending,
+                Attempts               = 0,
+                NextAttemptAtUtc       = @NowUtc,
+                ProcessingStartedAtUtc = NULL,
+                ProcessedAtUtc         = NULL
+            WHERE Id = @Id AND Status = @Failed
+            """;
+
+        await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        var affected = await connection.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Id = id,
+            NowUtc = nowUtc,
+            Pending = (byte)EventStatus.Pending,
+            Failed = (byte)EventStatus.Failed
+        }, cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
     public async Task<IReadOnlyList<WebhookEvent>> GetDueForProcessingAsync(int batchSize, DateTime nowUtc, CancellationToken cancellationToken = default)
     {
         const string sql = """

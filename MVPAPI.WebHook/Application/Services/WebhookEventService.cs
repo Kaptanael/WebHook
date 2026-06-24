@@ -117,6 +117,12 @@ public class WebhookEventService(
         return mapper.Map<List<EventResponse>>(events);
     }
 
+    public async Task<IReadOnlyList<EventResponse>> GetFailedAsync(int limit, CancellationToken cancellationToken = default)
+    {
+        var events = await eventRepository.GetByStatusAsync(EventStatus.Failed, limit, cancellationToken);
+        return mapper.Map<List<EventResponse>>(events);
+    }
+
     private async Task EnsureEndpointRegisteredAsync(string token, string eventType, int companyId, CancellationToken cancellationToken)
     {
         if (!routeOptions.Value.Routes.TryGetValue(eventType, out var internalUrl))

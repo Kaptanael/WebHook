@@ -70,6 +70,16 @@ public class WebhookEventLifecycleService(
         return true;
     }
 
+    public async Task<bool> RequeueAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var requeued = await eventRepository.RequeueFailedAsync(id, DateTime.UtcNow, cancellationToken);
+        if (requeued)
+            logger.LogInformation("Event {EventId} requeued for redelivery from Failed.", id);
+        else
+            logger.LogWarning("Requeue requested for event {EventId} but no Failed event matched.", id);
+        return requeued;
+    }
+
     /// <summary>
     /// Exponential backoff (base * 2^(attempt-1)) capped at the configured ceiling, with "equal jitter":
     /// half the delay is fixed and half is randomized. Keeps a minimum spacing while spreading retries so

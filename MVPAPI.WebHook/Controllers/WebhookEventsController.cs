@@ -64,6 +64,32 @@ public class WebhookEventsController(
         var updated = await eventLifecycle.MarkFailedAsync(id, request.Error, cancellationToken);
         return updated ? NoContent() : NotFound();
     }
+
+    [HttpGet("failed")]
+    [EndpointSummary("List dead-letter (permanently failed) events")]
+    [EndpointDescription("Returns the most recent events that exhausted all delivery attempts, newest first.")]
+    [ProducesResponseType<IReadOnlyList<EventResponse>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFailed([FromQuery] int limit = 50, CancellationToken cancellationToken = default)
+    {
+        limit = Math.Clamp(limit, 1, 500);
+        var events = await eventService.GetFailedAsync(limit, cancellationToken);
+        return Ok(events);
+    }
+
+    [HttpPost("{id:Guid}/replay")]
+    [EndpointSummary("Replay a dead-letter event")]
+    [EndpointDescription("Requeues a permanently-failed event for redelivery: resets it to Pending, due now. 404 if no failed event has that id.")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Replay(Guid id, CancellationToken cancellationToken)
+    {
+        var requeued = await eventLifecycle.RequeueAsync(id, cancellationToken);
+        if (!requeued)
+            return NotFound(new { error = $"No failed event with id {id} to replay." });
+
+        logger.LogInformation("Event {EventId} queued for replay.", id);
+        return Accepted(new { replayed = true, id });
+    }
 }
 
 public record MarkFailedRequest(string Error);

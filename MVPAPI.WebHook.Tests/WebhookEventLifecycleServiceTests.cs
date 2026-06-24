@@ -148,4 +148,26 @@ public class WebhookEventLifecycleServiceTests
 
         Assert.False(result);
     }
+
+    [Fact]
+    public async Task Requeue_WhenRepoRequeuesAFailedEvent_ReturnsTrue()
+    {
+        var id = Guid.NewGuid();
+        _repo.RequeueFailedAsync(id, Arg.Any<DateTime>(), Arg.Any<CancellationToken>()).Returns(true);
+
+        var result = await _sut.RequeueAsync(id);
+
+        Assert.True(result);
+        await _repo.Received(1).RequeueFailedAsync(id, Arg.Any<DateTime>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Requeue_WhenNoFailedEventMatches_ReturnsFalse()
+    {
+        _repo.RequeueFailedAsync(Arg.Any<Guid>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>()).Returns(false);
+
+        var result = await _sut.RequeueAsync(Guid.NewGuid());
+
+        Assert.False(result);
+    }
 }
