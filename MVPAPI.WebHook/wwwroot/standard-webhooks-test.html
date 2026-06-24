@@ -12,6 +12,7 @@
   header { padding:20px 24px; border-bottom:1px solid var(--line); }
   header h1 { margin:0 0 4px; font-size:18px; }
   header p { margin:4px 0 0; color:var(--muted); font-size:13px; }
+  header a { color:var(--accent); }
 
   .wrap { max-width:1200px; margin:0 auto; padding:18px 24px; display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
   @media (max-width:1000px){ .wrap{ grid-template-columns:1fr; } }
@@ -21,11 +22,10 @@
   .card .hint { color:var(--muted); margin:0 0 14px; font-size:12.5px; line-height:1.6; }
 
   label { display:block; margin:12px 0 4px; font-size:12.5px; color:var(--muted); font-weight:600; }
-  input, textarea, select { width:100%; background:#0d1120; color:var(--fg); border:1px solid var(--line); border-radius:7px; padding:8px 10px; font:inherit; }
+  input, textarea { width:100%; background:#0d1120; color:var(--fg); border:1px solid var(--line); border-radius:7px; padding:8px 10px; font:inherit; }
   textarea { resize:vertical; min-height:80px; font-family:ui-monospace,Consolas,monospace; }
 
   .row { display:flex; gap:10px; } .row > * { flex:1; }
-
   .section-title { margin-top:16px; margin-bottom:8px; font-weight:700; color:var(--fg); font-size:13px; }
 
   button { margin-top:14px; background:var(--accent); color:#fff; border:0; border-radius:7px; padding:10px 16px; font:inherit; font-weight:600; cursor:pointer; width:100%; }
@@ -34,7 +34,7 @@
   .info-box { background:#0d1120; border-left:3px solid var(--accent); border-radius:7px; padding:10px 12px; margin:12px 0; font-size:12.5px; line-height:1.6; }
   .info-box code { background:#171c2e; padding:1px 4px; border-radius:3px; }
 
-  .debug-panel { margin-top:14px; padding-top:14px; border-top:1px solid var(--line); }
+  .debug-panel { margin-top:14px; padding-top:14px; border-top:1px solid var(--line); display:none; }
   .debug-step { margin:10px 0; font-size:12.5px; }
   .debug-step .label { color:var(--muted); font-weight:600; }
   .debug-step .value { background:#0d1120; border-radius:5px; padding:6px 8px; margin-top:3px; font-family:ui-monospace,Consolas,monospace; font-size:12px; word-break:break-all; }
@@ -42,30 +42,27 @@
 
   .out { margin-top:14px; border-top:1px solid var(--line); padding-top:12px; display:none; }
   .out.show { display:block; }
-
   .status { font-weight:700; } .status.ok { color:var(--ok); } .status.err { color:var(--err); } .status.progress { color:var(--warn); }
 
   pre { background:#0d1120; border:1px solid var(--line); border-radius:7px; padding:10px; overflow:auto; margin:8px 0 0; max-height:280px; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; }
 
   .topbar { padding:0 24px 4px; margin-bottom:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .topbar label { display:inline; margin:0; }
-  .topbar input { width:auto; min-width:300px; flex:1; min-width:200px; }
+  .topbar input { width:auto; flex:1; min-width:200px; }
 
   .tabs { display:flex; gap:8px; margin-bottom:12px; border-bottom:1px solid var(--line); }
   .tab-btn { background:0; border:0; color:var(--muted); padding:10px 12px; cursor:pointer; border-bottom:2px solid transparent; font-size:13px; font-weight:600; }
   .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
   .tab-btn:hover { color:var(--fg); }
-
   .tab-content { display:none; } .tab-content.active { display:block; }
 
-  .key-info { background:#0d1120; border-radius:7px; padding:10px; margin:8px 0; font-size:12.5px; }
-  .key-info .key-type { color:var(--muted); }
+  .key-info { color:var(--muted); }
 </style>
 </head>
 <body>
 <header>
   <h1>Standard Webhooks Tester</h1>
-  <p><strong>POST /api/inbound</strong> using <code>webhook-id</code>, <code>webhook-timestamp</code>, <code>webhook-signature</code> headers. Signature is computed in-browser to match the server's <code>StandardWebhookSigner</code>.</p>
+  <p><strong>POST /api/inbound</strong> with <code>X-Api-Key</code> + <code>webhook-id</code>, <code>webhook-timestamp</code>, <code>webhook-signature</code> headers. Signature is computed in-browser to match the server's <code>StandardWebhookSigner</code> (keyed by <code>whsec_</code>+the key's Salt). Token-based tester: <a href="webhook-test.html">webhook-test.html</a></p>
 </header>
 
 <div class="topbar">
@@ -74,16 +71,21 @@
 </div>
 
 <div class="wrap">
-  <!-- ===================== LEFT: INPUTS & SIGNING ===================== -->
+  <!-- LEFT: INPUTS & SIGNING -->
   <div class="card">
     <h2>Signing Setup</h2>
     <p class="hint">Standard Webhooks signs the request body with an HMAC-SHA256 key derived from your endpoint's <code>SigningSecret</code>. The signature is sent as three headers.</p>
 
+    <div class="section-title">API Key</div>
+    <label>X-Api-Key (selects the PortalDB key row)</label>
+    <input id="apiKey" placeholder="raw api-key" value="447bfa78f56a442693a4e079f006df50-8349d2ab2e1f46e2bd7e3918b3dd95bd" />
+    <div class="hint">Sent as <code>X-Api-Key</code>. The server keys the HMAC with <code>whsec_</code>+ that key's Salt — enter the Salt below.</div>
+
     <div class="section-title">Endpoint Secret</div>
-    <label>SigningSecret (endpoint config)</label>
-    <input id="secret" placeholder="whsec_... or raw secret" value="whsec_test1234567890abcdefghijklmnopqr" />
+    <label>SigningSecret (the key's Salt; whsec_-prefixed = base64 key)</label>
+    <input id="secret" placeholder="whsec_... or raw secret" value="whsec_Vbe8H05Y6gedrN5hk2T/aBKaxE/XljNEumjcWbvsQFg=" />
     <div class="info-box" id="secretInfo">
-      <span class="key-type">Format:</span> Detected as <code>whsec_</code>-prefixed (base64-encoded binary)
+      <span class="key-info">Format:</span> Detected as <code>whsec_</code>-prefixed (base64-encoded binary)
     </div>
 
     <div class="section-title">Message Headers</div>
@@ -92,54 +94,33 @@
     <div class="hint">Unique message identifier. Auto-generated as <code>msg_&lt;random&gt;</code> if blank.</div>
 
     <label>webhook-timestamp (unix seconds)</label>
-    <input id="timestamp" placeholder="(auto-generate if blank)" value="" />
-    <div class="hint">Current unix timestamp (seconds). Auto-generated if blank. Must not be >5 min in the past (300s tolerance).</div>
+    <input id="timestamp" placeholder="(auto = now)" value="" />
+    <div class="hint">Unix timestamp (seconds). Auto-generated if blank. Must be within 5 min (300s tolerance).</div>
 
     <div class="section-title">Payload</div>
     <label>X-Event-Type</label>
-    <input id="eventType" value="order.created" />
+    <input id="eventType" value="door.manual" />
+    <div class="hint">Must be a routed type (<code>door.manual</code> or <code>relay.manual</code>) to provision/deliver.</div>
 
     <label>JSON body</label>
-    <textarea id="body">{"orderId":42,"amount":19.99}</textarea>
-    <div class="hint">Must be valid JSON. The exact bytes are signed, so no reformatting between signing and send.</div>
+    <textarea id="body">{"companyId":500646,"actionType":"Lock","strikeTimeOverrideInSeconds":67,"doorIds":["335ACAD0-D282-4761-992C-6A50F29DA777"]}</textarea>
+    <div class="hint">Exact bytes are signed — no reformatting between signing and send. For <code>door.manual</code> the body is delivered as-is to the door service: flat <code>{companyId, actionType, strikeTimeOverrideInSeconds, doorIds}</code> — actionType ∈ Unlock/Lock/UnlockHold, doorIds = reader GUIDs. This default is a verified end-to-end <code>200</code>.</div>
 
     <button id="computeBtn">Compute Signature</button>
 
-    <!-- Debug: Show the signing process -->
-    <div id="debugPanel" class="debug-panel" style="display:none;">
+    <div id="debugPanel" class="debug-panel">
       <div style="color:var(--muted); font-weight:700; margin-bottom:8px; font-size:13px;">Signature Computation</div>
-
-      <div class="debug-step">
-        <div class="label">1. Secret Decoding</div>
-        <div id="debugSecret" class="value"></div>
-      </div>
-
-      <div class="debug-step">
-        <div class="label">2. Signed Content (<code>id.timestamp.body</code>)</div>
-        <div id="debugSigned" class="value" style="white-space:pre-wrap; word-break:break-word;"></div>
-      </div>
-
-      <div class="debug-step">
-        <div class="label">3. HMAC-SHA256 (hex)</div>
-        <div id="debugHmac" class="value hex"></div>
-      </div>
-
-      <div class="debug-step">
-        <div class="label">4. Base64</div>
-        <div id="debugB64" class="value"></div>
-      </div>
-
-      <div class="debug-step">
-        <div class="label">5. Final Header Value</div>
-        <div id="debugFinal" class="value" style="color:var(--ok);"></div>
-      </div>
+      <div class="debug-step"><div class="label">1. Secret Decoding</div><div id="debugSecret" class="value"></div></div>
+      <div class="debug-step"><div class="label">2. Signed Content (<code>id.timestamp.body</code>)</div><div id="debugSigned" class="value" style="white-space:pre-wrap; word-break:break-word;"></div></div>
+      <div class="debug-step"><div class="label">3. HMAC-SHA256 (hex)</div><div id="debugHmac" class="value hex"></div></div>
+      <div class="debug-step"><div class="label">4. Base64</div><div id="debugB64" class="value"></div></div>
+      <div class="debug-step"><div class="label">5. Final Header Value</div><div id="debugFinal" class="value" style="color:var(--ok);"></div></div>
     </div>
   </div>
 
-  <!-- ===================== RIGHT: REQUEST & RESPONSE ===================== -->
+  <!-- RIGHT: REQUEST & RESPONSE -->
   <div class="card">
-    <h2>Send & Verify</h2>
-
+    <h2>Send &amp; Verify</h2>
     <div class="tabs">
       <button class="tab-btn active" data-tab="request">Request</button>
       <button class="tab-btn" data-tab="response">Response</button>
@@ -161,7 +142,7 @@
     </div>
 
     <div id="verify" class="tab-content">
-      <p class="hint">Verify your signature against a known good one. Paste a <code>webhook-signature</code> header value to check.</p>
+      <p class="hint">Paste a <code>webhook-signature</code> header value to check against the computed one.</p>
       <label>Reference signature to verify</label>
       <input id="refSig" placeholder="v1,base64..." />
       <button id="verifyBtn">Verify Against Computed</button>
@@ -181,22 +162,17 @@
 const $ = id => document.getElementById(id);
 const baseUrl = () => $('baseUrl').value.trim().replace(/\/$/, '') || '';
 
-// Detect secret format
-$('secret').addEventListener('input', () => updateSecretInfo());
+$('secret').addEventListener('input', updateSecretInfo);
 function updateSecretInfo() {
   const secret = $('secret').value.trim();
   const info = $('secretInfo');
-  if (secret.startsWith('whsec_')) {
-    info.innerHTML = '<span class="key-type">Format:</span> <code>whsec_</code>-prefixed (base64-encoded binary)';
-  } else if (secret) {
-    info.innerHTML = '<span class="key-type">Format:</span> Raw UTF-8 bytes';
-  } else {
-    info.innerHTML = '<span class="key-type" style="color:var(--err);">No secret entered</span>';
-  }
+  if (secret.startsWith('whsec_')) info.innerHTML = '<span class="key-info">Format:</span> <code>whsec_</code>-prefixed (base64-encoded binary)';
+  else if (secret) info.innerHTML = '<span class="key-info">Format:</span> Raw UTF-8 bytes';
+  else info.innerHTML = '<span class="key-info" style="color:var(--err);">No secret entered</span>';
 }
 updateSecretInfo();
 
-// Key bytes: whsec_ → base64-decode, else raw UTF-8
+// whsec_ -> base64-decode, else raw UTF-8
 function keyBytes(secret) {
   if (secret.startsWith('whsec_')) {
     try {
@@ -211,63 +187,50 @@ function keyBytes(secret) {
   return { bytes: new TextEncoder().encode(secret), format: 'raw UTF-8' };
 }
 
-// Hex dump
-function toHex(arr) {
-  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+const toHex = arr => Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+
+async function hmac(keyBytesArr, msg) {
+  const k = await crypto.subtle.importKey('raw', keyBytesArr, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(msg)));
 }
 
-// Compute & display signature
 $('computeBtn').addEventListener('click', async () => {
   $('debugPanel').style.display = 'block';
-
   const secret = $('secret').value.trim();
   const id = $('id').value.trim() || ('msg_' + Math.random().toString(36).slice(2, 12));
   const ts = $('timestamp').value.trim() || Math.floor(Date.now() / 1000).toString();
   const body = $('body').value;
-
   $('id').value = id;
   $('timestamp').value = ts;
 
-  // Step 1: Key bytes
   const keyInfo = keyBytes(secret);
   if (keyInfo.error) {
     $('debugSecret').textContent = keyInfo.error;
     $('debugSecret').style.color = 'var(--err)';
     return;
   }
-  const key = keyInfo.bytes;
-  $('debugSecret').textContent = `${keyInfo.format}: ${toHex(key)} (${key.length} bytes)`;
+  $('debugSecret').textContent = `${keyInfo.format}: ${toHex(keyInfo.bytes)} (${keyInfo.bytes.length} bytes)`;
   $('debugSecret').style.color = 'var(--ok)';
 
-  // Step 2: Signed content
   const signed = `${id}.${ts}.${body}`;
   $('debugSigned').textContent = signed;
 
-  // Step 3: HMAC-SHA256
   try {
-    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const mac = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(signed));
-    const hex = toHex(new Uint8Array(mac));
-    $('debugHmac').textContent = hex;
-
-    // Step 4: Base64
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(mac)));
+    const mac = await hmac(keyInfo.bytes, signed);
+    $('debugHmac').textContent = toHex(mac);
+    const b64 = btoa(String.fromCharCode(...mac));
     $('debugB64').textContent = b64;
-
-    // Step 5: Final header
     const sig = `v1,${b64}`;
     $('debugFinal').textContent = sig;
 
-    // Update request display
     $('requestText').textContent =
       `POST /api/inbound\n` +
       `Content-Type: application/json\n` +
+      `X-Api-Key: ${$('apiKey').value}\n` +
       `X-Event-Type: ${$('eventType').value}\n` +
       `webhook-id: ${id}\n` +
       `webhook-timestamp: ${ts}\n` +
-      `webhook-signature: ${sig}\n\n` +
-      body;
-
+      `webhook-signature: ${sig}\n\n` + body;
     $('sendBtn').disabled = false;
   } catch (e) {
     $('debugHmac').textContent = 'Error: ' + e.message;
@@ -275,28 +238,21 @@ $('computeBtn').addEventListener('click', async () => {
   }
 });
 
-// Send request
 $('sendBtn').addEventListener('click', async () => {
   const secret = $('secret').value.trim();
   const id = $('id').value.trim();
   const ts = $('timestamp').value.trim();
   const body = $('body').value;
 
-  // Re-compute signature
   const keyInfo = keyBytes(secret);
-  if (keyInfo.error) {
-    alert('Invalid secret: ' + keyInfo.error);
-    return;
-  }
+  if (keyInfo.error) { alert('Invalid secret: ' + keyInfo.error); return; }
 
-  const signed = `${id}.${ts}.${body}`;
-  const cryptoKey = await crypto.subtle.importKey('raw', keyInfo.bytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const mac = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(signed));
-  const b64 = btoa(String.fromCharCode(...new Uint8Array(mac)));
-  const sig = `v1,${b64}`;
+  const mac = await hmac(keyInfo.bytes, `${id}.${ts}.${body}`);
+  const sig = `v1,${btoa(String.fromCharCode(...mac))}`;
 
   const headers = {
     'Content-Type': 'application/json',
+    'X-Api-Key': $('apiKey').value.trim(),
     'X-Event-Type': $('eventType').value,
     'webhook-id': id,
     'webhook-timestamp': ts,
@@ -325,7 +281,6 @@ $('sendBtn').addEventListener('click', async () => {
   }
 });
 
-// Tab switching
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -335,30 +290,15 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-// Verify signature
-$('verifyBtn').addEventListener('click', async () => {
+$('verifyBtn').addEventListener('click', () => {
   const ref = $('refSig').value.trim();
   const computed = $('debugFinal').textContent.trim();
-
   $('verifyOut').style.display = 'block';
   const result = $('verifyResult');
-
-  if (!computed) {
-    result.textContent = 'Compute signature first';
-    result.className = 'status err';
-    return;
-  }
-
-  if (!ref) {
-    result.textContent = 'Paste a reference signature to verify';
-    result.className = 'status err';
-    return;
-  }
-
-  if (computed === ref) {
-    result.textContent = '✓ Signatures match';
-    result.className = 'status ok';
-  } else {
+  if (!computed) { result.textContent = 'Compute signature first'; result.className = 'status err'; return; }
+  if (!ref) { result.textContent = 'Paste a reference signature to verify'; result.className = 'status err'; return; }
+  if (computed === ref) { result.textContent = '✓ Signatures match'; result.className = 'status ok'; }
+  else {
     result.textContent = '✗ Signatures do NOT match';
     result.className = 'status err';
     result.innerHTML += `<pre style="margin-top:8px; font-size:12px;">Computed: ${computed}\nReference: ${ref}</pre>`;
