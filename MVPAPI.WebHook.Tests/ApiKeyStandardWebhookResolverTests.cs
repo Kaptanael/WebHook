@@ -37,7 +37,7 @@ public class ApiKeyStandardWebhookResolverTests
         // Sign exactly as the resolver verifies: salt prefixed so its bytes are base64-decoded.
         var sig = _signer.Sign(id, ts, body, WebhookSigningSecret.Prefix + (salt ?? Salt));
         return Request(body,
-            ("X-Api-Key", apiKey),
+            ("x-api-key",apiKey),
             ("webhook-id", id),
             ("webhook-timestamp", ts.ToUnixTimeSeconds().ToString()),
             ("webhook-signature", sig.Signature));
@@ -108,7 +108,7 @@ public class ApiKeyStandardWebhookResolverTests
         var ts = DateTimeOffset.UtcNow;
         var sig = _signer.Sign("msg-1", ts, Body, WebhookSigningSecret.Prefix + Salt);
         var tampered = Request("{\"order\":999}",
-            ("X-Api-Key", RawKey),
+            ("x-api-key",RawKey),
             ("webhook-id", "msg-1"),
             ("webhook-timestamp", ts.ToUnixTimeSeconds().ToString()),
             ("webhook-signature", sig.Signature));
@@ -134,7 +134,7 @@ public class ApiKeyStandardWebhookResolverTests
     [Fact]
     public async Task MissingTriplet_Rejected()
     {
-        var result = await _sut.ResolveAsync(Request(Body, ("X-Api-Key", RawKey)));
+        var result = await _sut.ResolveAsync(Request(Body, ("x-api-key",RawKey)));
 
         Assert.Equal(ApiKeyAuthOutcome.Rejected, result.Outcome);
         Assert.Equal("Missing webhook-id header.", result.Error);
