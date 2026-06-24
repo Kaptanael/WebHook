@@ -14,12 +14,17 @@ public static class DependencyInjection
     {
         var webhookDb = configuration.GetConnectionString("MVPWebhookDB")
             ?? throw new InvalidOperationException("Connection string 'MVPWebhookDB' is not configured.");
+        var portalDb = configuration.GetConnectionString("PortalDB")
+            ?? throw new InvalidOperationException("Connection string 'PortalDB' is not configured.");
 
         services.AddSingleton<IWebhookDbConnectionFactory>(new SqlConnectionFactory(webhookDb));
+        services.AddSingleton<IPortalDbConnectionFactory>(new PortalDbConnectionFactory(portalDb));
 
         services.AddScoped<IWebHookConnectionRepository, WebHookConnectionRepository>();
         services.AddScoped<IWebhookEndpointRepository, WebhookEndpointRepository>();
         services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+        services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
+        services.AddScoped<IClientCredentialRepository, ClientCredentialRepository>();
 
         services.AddHttpClient<IWebhookDeliveryClient, HttpWebhookDeliveryClient>((sp, client) =>
         {

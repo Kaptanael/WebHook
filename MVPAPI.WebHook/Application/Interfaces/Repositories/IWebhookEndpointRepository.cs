@@ -6,7 +6,7 @@ public interface IWebhookEndpointRepository
 {
     Task<WebhookEndpoint?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<WebhookEndpoint?> GetByEndpointAsync(string endpoint, CancellationToken cancellationToken = default);
-    Task<WebhookEndpoint?> GetByEndpointTokenAsync(string endpointToken, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WebhookEndpoint>> GetActiveAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WebhookEndpoint>> GetByCompanyIdAsync(int companyId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WebhookEndpoint>> GetActiveByEventTypeAsync(string eventType, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WebhookEndpoint>> GetActiveByCompanyAndEventTypeAsync(int companyId, string eventType, CancellationToken cancellationToken = default);

@@ -1,0 +1,73 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using MVPAPI.WebHook.Application.Common;
+using MVPAPI.WebHook.Application.Interfaces.Inbound;
+using MVPAPI.WebHook.Application.Interfaces.Repositories;
+using MVPAPI.WebHook.Application.Interfaces.Services;
+using MVPAPI.WebHook.Domain.Entities;
+using System.Text.Json;
+
+namespace MVPAPI.WebHook.Application.Services.Inbound;
+
+public class InboundProvisioningService(
+    IClientCredentialRepository credentialRepository,
+    IWebHookConnectionManager connectionManager,
+    IWebhookEndpointRepository endpointRepository,
+    IOptions<WebhookRouteOptions> routeOptions,
+    IOptions<MVPApiOptions> apiOptions,
+    ILogger<InboundProvisioningService> logger) : IInboundProvisioningService
+{
+    // All inbound-provisioned connections are tagged with this application type in their client token.
+    private const string ApplicationType = "API_MVP_INTEGRATION_ZAPIER";
+
+    public async Task<WebhookEndpoint?> EnsureProvisionedAsync(int companyId, string rawApiKey, string eventType, CancellationToken cancellationToken = default)
+    {
+        // The endpoint's delivery URL comes from the WebhookRoutes config, keyed by event type.
+        if (!routeOptions.Value.Routes.TryGetValue(eventType, out var deliveryUrl) || string.IsNullOrWhiteSpace(deliveryUrl))
+        {
+            logger.LogWarning("Cannot provision endpoint for company {CompanyId}: no WebhookRoutes entry for event type '{EventType}'.", companyId, eventType);
+            return null;
+        }
+
+        // clientId/secret are not in the inbound request; the only server-side source is ClientCredentials.
+        var credential = await credentialRepository.GetActiveByCompanyIdAsync(companyId, cancellationToken);
+        if (credential is null)
+        {
+            logger.LogWarning("Cannot provision connection for company {CompanyId}: no active client credential.", companyId);
+            return null;
+        }
+
+        var clientToken = Common.TokenDecoder.Encode(
+            apiOptions.Value.BaseUrl, rawApiKey, credential.ClientId, credential.Secret, ApplicationType, companyId.ToString());
+
+        // Obtain the MVP API token and persist the connection (idempotent on ClientToken).
+        var connectionResult = await connectionManager.EnsureConnectionAsync(clientToken, cancellationToken);
+        if (!connectionResult.IsSuccess)
+        {
+            logger.LogError("Inbound provisioning failed for company {CompanyId}: {Error}", companyId, connectionResult.Error);
+            return null;
+        }
+
+        // Reuse an existing endpoint for this event type if present; otherwise create it.
+        var existing = await endpointRepository.GetActiveByCompanyAndEventTypeAsync(companyId, eventType, cancellationToken);
+        if (existing.Count > 0)
+            return existing[0];
+
+        var endpoint = new WebhookEndpoint
+        {
+            EndPointToken = clientToken,
+            Endpoint = deliveryUrl,
+            CompanyId = companyId,
+            TriggerConfigJson = JsonSerializer.Serialize(new { triggerType = eventType, companyId }),
+            // Per-endpoint Standard Webhooks secret for signing outbound deliveries. Required (NOT NULL)
+            // and not the inbound credential (the X-Api-Key path verifies against the key's salt).
+            SigningSecret = WebhookSigningSecret.Generate(),
+            IsActive = true,
+            ActionDataSchema = "{}"
+        };
+        endpoint.Id = await endpointRepository.AddAsync(endpoint, cancellationToken);
+        logger.LogInformation("Provisioned inbound endpoint {EndpointId} for company {CompanyId}, event type {EventType} -> {Url}.",
+            endpoint.Id, companyId, eventType, deliveryUrl);
+        return endpoint;
+    }
+}

@@ -7,6 +7,25 @@ public class TokenDecoder
 {
     private const char D = '\n';
 
+    /// <summary>
+    /// Inverse of <see cref="Decode"/>: packs the fields into the base64url client-token form
+    /// (<c>baseUrl\napiKey\nclientId\nclientSecret\napplicationName\ncompanyId</c>, with the URL scheme
+    /// shortened to <c>S|</c>/<c>H|</c>). Used to mint a ClientToken when auto-provisioning a connection.
+    /// </summary>
+    public static string Encode(string baseUrl, string apiKey, string clientId, string clientSecret, string applicationName, string companyId)
+    {
+        if (baseUrl.StartsWith("https://", StringComparison.Ordinal))
+            baseUrl = "S|" + baseUrl.Substring(8);
+        else if (baseUrl.StartsWith("http://", StringComparison.Ordinal))
+            baseUrl = "H|" + baseUrl.Substring(7);
+
+        var combined = string.Join(D.ToString(),
+            new[] { baseUrl, apiKey, clientId, clientSecret, applicationName, companyId });
+
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(combined))
+            .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+    }
+
     public static TokenDecoderResponse? Decode(string encoded)
     {
         try

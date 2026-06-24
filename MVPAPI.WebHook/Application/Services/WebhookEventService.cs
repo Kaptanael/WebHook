@@ -98,6 +98,13 @@ public class WebhookEventService(
         return mapper.Map<List<EventResponse>>(events);
     }
 
+    public async Task<EventResponse> PublishToEndpointAsync(WebhookEndpoint endpoint, string eventType, string payload, string? provider, CancellationToken cancellationToken = default)
+    {
+        var events = await FanOutAndPersistAsync([endpoint], provider, eventType, payload, cancellationToken);
+        logger.LogInformation("Queued 1 event for endpoint {EndpointId} (company {CompanyId}), event type {EventType}.", endpoint.Id, endpoint.CompanyId, eventType);
+        return mapper.Map<EventResponse>(events[0]);
+    }
+
     public async Task<EventResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var webhookEvent = await eventRepository.GetByIdAsync(id, cancellationToken);
@@ -148,7 +155,7 @@ public class WebhookEventService(
                 Status           = EventStatus.Pending,
                 ReceivedAtUtc    = nowUtc,
                 NextAttemptAtUtc = nowUtc,
-                IdempotencyKey   = Guid.NewGuid().ToString()
+                IdempotencyKey   = Guid.NewGuid()
             };
             await eventRepository.AddAsync(webhookEvent, cancellationToken);
             events.Add(webhookEvent);

@@ -8,9 +8,17 @@ namespace MVPAPI.WebHook.Infrastructure.Repositories;
 public class WebhookEndpointRepository(IWebhookDbConnectionFactory connectionFactory) : IWebhookEndpointRepository
 {
     private const string SelectColumns = """
-        SELECT Id, EndPointToken, Endpoint, CompanyId, TriggerConfigJson, IsActive, CreatedAtUtc, ActionDataSchema
+        SELECT Id, EndPointToken, Endpoint, CompanyId, TriggerConfigJson, SigningSecret, IsActive, CreatedAtUtc, ActionDataSchema
         FROM WebhookEndpoints
         """;
+
+    public async Task<IReadOnlyList<WebhookEndpoint>> GetActiveAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        var endpoints = await connection.QueryAsync<WebhookEndpoint>(new CommandDefinition(
+            $"{SelectColumns} WHERE IsActive = 1", cancellationToken: cancellationToken));
+        return endpoints.ToList();
+    }
 
     public async Task<WebhookEndpoint?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -26,13 +34,6 @@ public class WebhookEndpointRepository(IWebhookDbConnectionFactory connectionFac
             $"{SelectColumns} WHERE Endpoint = @Endpoint", new { Endpoint = endpoint }, cancellationToken: cancellationToken));
     }
 
-    public async Task<WebhookEndpoint?> GetByEndpointTokenAsync(string endpointToken, CancellationToken cancellationToken = default)
-    {
-        await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
-        return await connection.QuerySingleOrDefaultAsync<WebhookEndpoint>(new CommandDefinition(
-            $"{SelectColumns} WHERE EndPointToken = @EndPointToken", new { EndPointToken = endpointToken }, cancellationToken: cancellationToken));
-    }
-
     public async Task<IReadOnlyList<WebhookEndpoint>> GetByCompanyIdAsync(int companyId, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
@@ -45,10 +46,10 @@ public class WebhookEndpointRepository(IWebhookDbConnectionFactory connectionFac
     {
         const string sql = """
             INSERT INTO WebhookEndpoints
-                (EndPointToken, Endpoint, CompanyId, TriggerConfigJson, ActionDataSchema)
+                (EndPointToken, Endpoint, CompanyId, TriggerConfigJson, SigningSecret, ActionDataSchema)
             OUTPUT inserted.Id
             VALUES
-                (@EndPointToken, @Endpoint, @CompanyId, @TriggerConfigJson, @ActionDataSchema)
+                (@EndPointToken, @Endpoint, @CompanyId, @TriggerConfigJson, @SigningSecret, @ActionDataSchema)
             """;
 
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);

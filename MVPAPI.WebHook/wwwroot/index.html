@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MVPAPI WebHook Tester</title>
+<style>
+  :root { --bg:#0f1320; --card:#171c2e; --line:#2a3350; --fg:#e6e9f2; --muted:#9aa3bd; --accent:#5b8cff; --ok:#37d499; --err:#ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:20px 24px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:4px 0 0; color:var(--muted); }
+  .wrap { display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:18px 24px; align-items:start; }
+  @media (max-width:900px){ .wrap{ grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; }
+  .card h2 { margin:0 0 4px; font-size:15px; }
+  .card .hint { color:var(--muted); margin:0 0 14px; font-size:12.5px; }
+  label { display:block; margin:10px 0 4px; font-size:12.5px; color:var(--muted); }
+  input, select, textarea { width:100%; background:#0d1120; color:var(--fg); border:1px solid var(--line); border-radius:7px; padding:8px 10px; font:inherit; }
+  textarea { resize:vertical; min-height:90px; font-family:ui-monospace,Consolas,monospace; }
+  .row { display:flex; gap:10px; } .row > * { flex:1; }
+  .method-fields { display:none; } .method-fields.active { display:block; }
+  button { margin-top:14px; background:var(--accent); color:#fff; border:0; border-radius:7px; padding:10px 16px; font:inherit; font-weight:600; cursor:pointer; }
+  button:hover { filter:brightness(1.08); } button:disabled { opacity:.6; cursor:default; }
+  .out { margin-top:14px; border-top:1px solid var(--line); padding-top:12px; display:none; }
+  .out.show { display:block; }
+  .status { font-weight:700; } .status.ok { color:var(--ok); } .status.err { color:var(--err); }
+  pre { background:#0d1120; border:1px solid var(--line); border-radius:7px; padding:10px; overflow:auto; margin:8px 0 0; max-height:260px; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; }
+  .topbar { padding:0 24px 4px; } .topbar label{ display:inline-block; margin-right:8px; }
+  .topbar input { width:auto; min-width:280px; display:inline-block; }
+  code { background:#0d1120; padding:1px 5px; border-radius:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MVPAPI WebHook Tester</h1>
+  <p>Exercises <code>POST /api/inbound</code> (header-based auth) and <code>POST /api/receiver</code> (test sink). Served from <code>wwwroot</code> — same origin, so requests need no CORS.</p>
+</header>
+
+<div class="topbar">
+  <label for="baseUrl">Base URL</label>
+  <input id="baseUrl" placeholder="(blank = same origin)" value="" />
+  <span class="hint" style="color:var(--muted)">Leave blank to call this app directly.</span>
+</div>
+
+<div class="wrap">
+  <!-- ===================== INBOUND ===================== -->
+  <div class="card">
+    <h2>Inbound webhook → /api/inbound</h2>
+    <p class="hint">The integration is resolved by the credential — no key in the URL. The matched endpoint's token (or signing secret) authenticates the request.</p>
+
+    <label for="authMethod">Auth method</label>
+    <select id="authMethod">
+      <option value="apikey">X-Api-Key (endpoint EndPointToken)</option>
+      <option value="token">x-token — raw custom token (endpoint EndPointToken)</option>
+      <option value="swh">Standard Webhooks signature (endpoint SigningSecret)</option>
+    </select>
+
+    <div class="method-fields active" data-m="apikey">
+      <label>X-Api-Key value</label>
+      <input id="apiKey" placeholder="endpoint EndPointToken" />
+    </div>
+    <div class="method-fields" data-m="token">
+      <label>x-token value</label>
+      <input id="tokenVal" placeholder="endpoint EndPointToken" />
+    </div>
+    <div class="method-fields" data-m="swh">
+      <label>Signing secret (endpoint SigningSecret)</label>
+      <input id="swhSecret" placeholder="whsec_... or any raw secret" />
+      <div class="row">
+        <div><label>webhook-id</label><input id="swhId" placeholder="(auto if blank)" /></div>
+        <div><label>webhook-timestamp (unix s)</label><input id="swhTs" placeholder="(auto = now)" /></div>
+      </div>
+      <p class="hint">Signature is computed in-browser: <code>v1,base64(HMAC-SHA256("id.ts.body", key))</code>, matching StandardWebhookSigner (<code>whsec_</code> secrets are base64-decoded for the key).</p>
+    </div>
+
+    <label>X-Event-Type <small style="color:var(--muted)">(optional — body <code>type</code> wins)</small></label>
+    <input id="eventType" value="" placeholder="blank if body has a top-level type" />
+
+    <label>JSON body</label>
+    <textarea id="inboundBody">{ "type": "contact.created", "timestamp": "2022-11-03T20:26:10.344522Z", "data": { "id": "1f81eb52-5198-4599-803e-771906343485" } }</textarea>
+
+    <button id="sendInbound">Send inbound</button>
+    <div class="out" id="inboundOut">
+      <span class="status" id="inboundStatus"></span>
+      <pre id="inboundReq"></pre>
+      <pre id="inboundResp"></pre>
+    </div>
+  </div>
+
+  <!-- ===================== RECEIVER ===================== -->
+  <div class="card">
+    <h2>Receiver sink → /api/receiver</h2>
+    <p class="hint">Local sink the dispatcher delivers to. Logs credential presence + payload and returns 200. Use it to verify outbound delivery shape.</p>
+
+    <label>api-key header (optional)</label>
+    <input id="rcvApiKey" placeholder="leave blank to omit" />
+
+    <label>Bearer token (optional)</label>
+    <input id="rcvBearer" placeholder="leave blank to omit" />
+
+    <label>JSON body</label>
+    <textarea id="rcvBody">{ "event": "order.created", "data": { "orderId": 42 } }</textarea>
+
+    <button id="sendReceiver">Send to receiver</button>
+    <div class="out" id="rcvOut">
+      <span class="status" id="rcvStatus"></span>
+      <pre id="rcvReq"></pre>
+      <pre id="rcvResp"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const baseUrl = () => $('baseUrl').value.trim().replace(/\/$/, '');
+
+// Toggle inbound auth-method field groups.
+$('authMethod').addEventListener('change', e => {
+  document.querySelectorAll('.method-fields').forEach(el =>
+    el.classList.toggle('active', el.dataset.m === e.target.value));
+});
+
+// --- Standard Webhooks signature (mirrors StandardWebhookSigner) ---
+function keyBytes(secret) {
+  if (secret.startsWith('whsec_')) {
+    try {
+      const bin = atob(secret.slice(6));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    } catch { /* fall through to raw UTF-8 */ }
+  }
+  return new TextEncoder().encode(secret);
+}
+async function swhSignature(secret, id, ts, body) {
+  const key = await crypto.subtle.importKey('raw', keyBytes(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${id}.${ts}.${body}`));
+  return 'v1,' + btoa(String.fromCharCode(...new Uint8Array(mac)));
+}
+
+async function send(url, headers, body, els) {
+  const { statusEl, reqEl, respEl, outEl, btn } = els;
+  btn.disabled = true;
+  outEl.classList.add('show');
+  statusEl.textContent = 'Sending…'; statusEl.className = 'status';
+  reqEl.textContent = `POST ${url}\n` + Object.entries(headers).map(([k, v]) => `${k}: ${v}`).join('\n') + `\n\n${body}`;
+  respEl.textContent = '';
+  try {
+    const res = await fetch(url, { method: 'POST', headers, body });
+    const text = await res.text();
+    let pretty = text;
+    try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+    statusEl.textContent = `${res.status} ${res.statusText}`;
+    statusEl.className = 'status ' + (res.ok ? 'ok' : 'err');
+    respEl.textContent = pretty || '(empty body)';
+  } catch (err) {
+    statusEl.textContent = 'Request failed'; statusEl.className = 'status err';
+    respEl.textContent = String(err);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('sendInbound').addEventListener('click', async () => {
+  const method = $('authMethod').value;
+  const body = $('inboundBody').value;
+  const headers = { 'Content-Type': 'application/json' };
+  // Optional — omit when blank so the body's "type" (Standard Webhooks envelope) sets the event.
+  if ($('eventType').value.trim()) headers['X-Event-Type'] = $('eventType').value.trim();
+
+  if (method === 'apikey') headers['X-Api-Key'] = $('apiKey').value;
+  else if (method === 'token') headers['x-token'] = $('tokenVal').value;
+  else if (method === 'swh') {
+    const id = $('swhId').value.trim() || ('msg_' + Math.random().toString(36).slice(2, 12));
+    const ts = $('swhTs').value.trim() || Math.floor(Date.now() / 1000).toString();
+    headers['webhook-id'] = id;
+    headers['webhook-timestamp'] = ts;
+    headers['webhook-signature'] = await swhSignature($('swhSecret').value, id, ts, body);
+  }
+
+  send(baseUrl() + '/api/inbound', headers, body, {
+    statusEl: $('inboundStatus'), reqEl: $('inboundReq'), respEl: $('inboundResp'),
+    outEl: $('inboundOut'), btn: $('sendInbound')
+  });
+});
+
+$('sendReceiver').addEventListener('click', () => {
+  const headers = { 'Content-Type': 'application/json' };
+  if ($('rcvApiKey').value.trim()) headers['api-key'] = $('rcvApiKey').value.trim();
+  if ($('rcvBearer').value.trim()) headers['Authorization'] = 'Bearer ' + $('rcvBearer').value.trim();
+
+  send(baseUrl() + '/api/receiver', headers, $('rcvBody').value, {
+    statusEl: $('rcvStatus'), reqEl: $('rcvReq'), respEl: $('rcvResp'),
+    outEl: $('rcvOut'), btn: $('sendReceiver')
+  });
+});
+</script>
+</body>
+</html>
