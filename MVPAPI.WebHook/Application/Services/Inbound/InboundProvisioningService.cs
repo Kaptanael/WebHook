@@ -59,6 +59,9 @@ public class InboundProvisioningService(
             Endpoint = deliveryUrl,
             CompanyId = companyId,
             TriggerConfigJson = JsonSerializer.Serialize(new { triggerType = eventType, companyId }),
+            // Per-endpoint Standard Webhooks secret for signing outbound deliveries. Required (NOT NULL)
+            // and not the inbound credential (the X-Api-Key path verifies against the key's salt).
+            SigningSecret = WebhookSigningSecret.Generate(),
             IsActive = true,
             ActionDataSchema = "{}"
         };

@@ -46,10 +46,10 @@ public class WebhookEndpointRepository(IWebhookDbConnectionFactory connectionFac
     {
         const string sql = """
             INSERT INTO WebhookEndpoints
-                (EndPointToken, Endpoint, CompanyId, TriggerConfigJson, ActionDataSchema)
+                (EndPointToken, Endpoint, CompanyId, TriggerConfigJson, SigningSecret, ActionDataSchema)
             OUTPUT inserted.Id
             VALUES
-                (@EndPointToken, @Endpoint, @CompanyId, @TriggerConfigJson, @ActionDataSchema)
+                (@EndPointToken, @Endpoint, @CompanyId, @TriggerConfigJson, @SigningSecret, @ActionDataSchema)
             """;
 
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
