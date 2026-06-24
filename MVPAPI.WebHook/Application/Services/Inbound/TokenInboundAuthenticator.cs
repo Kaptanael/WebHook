@@ -5,13 +5,13 @@ using MVPAPI.WebHook.Domain.Entities;
 namespace MVPAPI.WebHook.Application.Services.Inbound;
 
 /// <summary>
-/// Custom static-token authenticator: compares the raw <c>token</c> request header (no scheme,
+/// Custom static-token authenticator: compares the raw <c>x-token</c> request header (no scheme,
 /// not <c>Bearer</c>) against the endpoint's <see cref="WebhookEndpoint.EndPointToken"/> using a
 /// fixed-time comparison.
 /// </summary>
 public class TokenInboundAuthenticator : IInboundAuthenticator
 {
-    public const string HeaderName = "token";
+    public const string HeaderName = "x-token";
 
     public Result Authenticate(InboundRequest request, WebhookEndpoint endpoint)
     {

@@ -17,7 +17,7 @@ public class TokenInboundAuthenticatorTests
     [Fact]
     public void Authenticate_MatchingRawToken_Succeeds()
     {
-        var result = _sut.Authenticate(Request(("token", "s3cret")), Endpoint());
+        var result = _sut.Authenticate(Request(("x-token","s3cret")), Endpoint());
 
         Assert.True(result.IsSuccess);
     }
@@ -25,7 +25,7 @@ public class TokenInboundAuthenticatorTests
     [Fact]
     public void Authenticate_TrimsSurroundingWhitespace()
     {
-        var result = _sut.Authenticate(Request(("token", "  s3cret  ")), Endpoint());
+        var result = _sut.Authenticate(Request(("x-token","  s3cret  ")), Endpoint());
 
         Assert.True(result.IsSuccess);
     }
@@ -33,7 +33,7 @@ public class TokenInboundAuthenticatorTests
     [Fact]
     public void Authenticate_WrongToken_Fails()
     {
-        var result = _sut.Authenticate(Request(("token", "nope")), Endpoint());
+        var result = _sut.Authenticate(Request(("x-token","nope")), Endpoint());
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Invalid token.", result.Error);
@@ -45,13 +45,13 @@ public class TokenInboundAuthenticatorTests
         var result = _sut.Authenticate(Request(), Endpoint());
 
         Assert.False(result.IsSuccess);
-        Assert.Equal("Missing token header.", result.Error);
+        Assert.Equal("Missing x-token header.", result.Error);
     }
 
     [Fact]
     public void Authenticate_EndpointWithoutToken_Fails()
     {
-        var result = _sut.Authenticate(Request(("token", "x")), Endpoint(token: ""));
+        var result = _sut.Authenticate(Request(("x-token","x")), Endpoint(token: ""));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Endpoint has no token configured.", result.Error);

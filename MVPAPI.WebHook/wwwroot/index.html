@@ -53,7 +53,7 @@
     <label for="authMethod">Auth method</label>
     <select id="authMethod">
       <option value="apikey">X-Api-Key (endpoint EndPointToken)</option>
-      <option value="token">token — raw custom token (endpoint EndPointToken)</option>
+      <option value="token">x-token — raw custom token (endpoint EndPointToken)</option>
       <option value="swh">Standard Webhooks signature (endpoint SigningSecret)</option>
     </select>
 
@@ -62,7 +62,7 @@
       <input id="apiKey" placeholder="endpoint EndPointToken" />
     </div>
     <div class="method-fields" data-m="token">
-      <label>token value</label>
+      <label>x-token value</label>
       <input id="tokenVal" placeholder="endpoint EndPointToken" />
     </div>
     <div class="method-fields" data-m="swh">
@@ -169,7 +169,7 @@ $('sendInbound').addEventListener('click', async () => {
   const headers = { 'Content-Type': 'application/json', 'X-Event-Type': $('eventType').value };
 
   if (method === 'apikey') headers['X-Api-Key'] = $('apiKey').value;
-  else if (method === 'token') headers['token'] = $('tokenVal').value;
+  else if (method === 'token') headers['x-token'] = $('tokenVal').value;
   else if (method === 'swh') {
     const id = $('swhId').value.trim() || ('msg_' + Math.random().toString(36).slice(2, 12));
     const ts = $('swhTs').value.trim() || Math.floor(Date.now() / 1000).toString();
