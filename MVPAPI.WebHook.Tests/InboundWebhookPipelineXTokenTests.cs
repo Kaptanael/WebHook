@@ -39,7 +39,7 @@ public class InboundWebhookPipelineXTokenTests
         _connections,
         _apiKeyResolver,
         _provisioning,
-        [new TokenInboundAuthenticator()],   // real authenticator
+        [new TokenInboundAuthenticator(new MVPAPI.WebHook.Application.Services.TokenDecoder())],   // real authenticator
         new DefaultPayloadAdapter(),         // real adapter
         _eventService,
         _tokenDecoder,
