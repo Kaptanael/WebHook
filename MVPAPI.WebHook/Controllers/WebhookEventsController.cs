@@ -8,7 +8,7 @@ namespace MVPAPI.WebHook.Controllers;
 [Route("api/webhook/events")]
 [Produces("application/json")]
 public class WebhookEventsController(
-    IWebhookEventService eventService,
+    IWebhookInboundService eventService,
     IWebhookEventLifecycleService eventLifecycle,
     ILogger<WebhookEventsController> logger) : ControllerBase
 {
@@ -16,7 +16,7 @@ public class WebhookEventsController(
     [HttpPost]
     [EndpointSummary("Dispatch events to all subscribed endpoints")]
     [EndpointDescription("Looks up the connection by client token, then queues one pending event per registered endpoint for background delivery.")]
-    [ProducesResponseType<IReadOnlyList<EventResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<IReadOnlyList<WebhookInboundResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Publish([FromBody] PublishEventRequest request, CancellationToken cancellationToken)
     {
@@ -68,7 +68,7 @@ public class WebhookEventsController(
     [HttpGet("failed")]
     [EndpointSummary("List dead-letter (permanently failed) events")]
     [EndpointDescription("Returns the most recent events that exhausted all delivery attempts, newest first.")]
-    [ProducesResponseType<IReadOnlyList<EventResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<IReadOnlyList<WebhookInboundResponse>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetFailed([FromQuery] int limit = 50, CancellationToken cancellationToken = default)
     {
         limit = Math.Clamp(limit, 1, 500);

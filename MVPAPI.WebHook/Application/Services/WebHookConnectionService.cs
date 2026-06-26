@@ -5,11 +5,11 @@ using MVPAPI.WebHook.Application.Interfaces.Services;
 namespace MVPAPI.WebHook.Application.Services;
 
 public class WebHookConnectionService(
-    IWebHookConnectionManager connectionManager) : IWebHookConnectionService
+IWebhookManager webhookManager) : IWebHookConnectionService
 {
     public async Task<Result<CreateConnectionResponse>> Connect(string token, CancellationToken cancellationToken = default)
     {
-        var result = await connectionManager.EnsureConnectionAsync(token, cancellationToken);
+        var result = await webhookManager.EnsureConnectionAsync(token, cancellationToken);
         if (!result.IsSuccess)
             return Result.Failure<CreateConnectionResponse>(result.Error!);
 

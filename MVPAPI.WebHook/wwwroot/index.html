@@ -67,12 +67,12 @@
     </div>
     <div class="method-fields" data-m="swh">
       <label>Signing secret (endpoint SigningSecret)</label>
-      <input id="swhSecret" placeholder="whsec_... or any raw secret" />
+      <input id="swhSecret" placeholder="the key's Salt" />
       <div class="row">
         <div><label>webhook-id</label><input id="swhId" placeholder="(auto if blank)" /></div>
         <div><label>webhook-timestamp (unix s)</label><input id="swhTs" placeholder="(auto = now)" /></div>
       </div>
-      <p class="hint">Signature is computed in-browser: <code>v1,base64(HMAC-SHA256("id.ts.body", key))</code>, matching StandardWebhookSigner (<code>whsec_</code> secrets are base64-decoded for the key).</p>
+      <p class="hint">Signature is computed in-browser: <code>v1,base64(HMAC-SHA256("id.ts.body", key))</code>, matching WebhookSigner (the Salt is used directly as the raw UTF-8 key).</p>
     </div>
 
     <label>X-Event-Type <small style="color:var(--muted)">(optional — body <code>type</code> wins)</small></label>
@@ -122,16 +122,9 @@ $('authMethod').addEventListener('change', e => {
     el.classList.toggle('active', el.dataset.m === e.target.value));
 });
 
-// --- Standard Webhooks signature (mirrors StandardWebhookSigner) ---
+// --- Standard Webhooks signature (mirrors WebhookSigner) ---
+// The Salt is used directly as the raw UTF-8 HMAC key.
 function keyBytes(secret) {
-  if (secret.startsWith('whsec_')) {
-    try {
-      const bin = atob(secret.slice(6));
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return bytes;
-    } catch { /* fall through to raw UTF-8 */ }
-  }
   return new TextEncoder().encode(secret);
 }
 async function swhSignature(secret, id, ts, body) {

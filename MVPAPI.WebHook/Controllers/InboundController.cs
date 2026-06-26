@@ -7,7 +7,7 @@ namespace MVPAPI.WebHook.Controllers;
 [ApiController]
 [Route("api/inbound")]
 [Produces("application/json")]
-public class InboundController(IInboundWebhookPipeline pipeline) : ControllerBase
+public class InboundController(IInboundWebhookHandler handler) : ControllerBase
 {
     [HttpPost]
     [EndpointSummary("Receive an inbound webhook from an external integration")]
@@ -17,12 +17,10 @@ public class InboundController(IInboundWebhookPipeline pipeline) : ControllerBas
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Receive(CancellationToken cancellationToken)
     {
-        using var reader = new StreamReader(Request.Body, Encoding.UTF8);
-        var body = await reader.ReadToEndAsync(cancellationToken);
-
+        var body = await new StreamReader(Request.Body, Encoding.UTF8).ReadToEndAsync(cancellationToken);
         var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString(), StringComparer.OrdinalIgnoreCase);
 
-        var result = await pipeline.ProcessAsync(new InboundRequest(headers, body), cancellationToken);
+        var result = await handler.HandleAsync(new InboundRequest(headers, body), cancellationToken);
 
         return result.Outcome switch
         {

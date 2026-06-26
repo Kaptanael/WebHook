@@ -10,5 +10,7 @@ public class WebHookConnection
     public string MVPApiToken { get; set; } = string.Empty;
     public string MVPApiRefreshToken { get; set; } = string.Empty;
     public DateTime MVPApiExpiresIn { get; set; }
+    public string MVPAuthKeyJson { get; set; } = string.Empty;
+    public string? SigningSecret { get; set; } = string.Empty;
     public DateTime CreatedAtUtc { get; set; }
 }

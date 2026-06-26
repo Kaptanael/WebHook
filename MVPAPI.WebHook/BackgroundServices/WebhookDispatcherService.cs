@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using MVPAPI.WebHook.Application.Common;
+using MVPAPI.WebHook.Application.Common.Options;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 
 namespace MVPAPI.WebHook.BackgroundServices;

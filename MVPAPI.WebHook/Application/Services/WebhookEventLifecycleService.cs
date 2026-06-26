@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using MVPAPI.WebHook.Application.Common;
+using MVPAPI.WebHook.Application.Common.Options;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 using MVPAPI.WebHook.Domain.Enums;
@@ -7,7 +7,7 @@ using MVPAPI.WebHook.Domain.Enums;
 namespace MVPAPI.WebHook.Application.Services;
 
 public class WebhookEventLifecycleService(
-    IWebhookEventRepository eventRepository,
+    IWebhookInboundRepository eventRepository,
     IOptions<WebhookDispatchOptions> options,
     ILogger<WebhookEventLifecycleService> logger) : IWebhookEventLifecycleService
 {

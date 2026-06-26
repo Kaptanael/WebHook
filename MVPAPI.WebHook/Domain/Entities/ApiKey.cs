@@ -1,27 +1,24 @@
 namespace MVPAPI.WebHook.Domain.Entities;
 
-/// <summary>
-/// A row from the external <c>[PortalDB].[dbo].[ApiKeys]</c> table. The caller presents the
-/// plaintext key in the <c>X-Api-Key</c> header (matched against <see cref="RawApiKey"/>); the
-/// per-key <see cref="Salt"/> is the shared secret used to verify the inbound Standard Webhooks
-/// signature. Only the columns the inbound pipeline needs are mapped.
-/// </summary>
 public class ApiKey
 {
     public Guid Id { get; set; }
-
-    /// <summary>Plaintext API key value matched against the <c>X-Api-Key</c> header.</summary>
-    public string RawApiKey { get; set; } = string.Empty;
-
-    /// <summary>Per-key secret used as the HMAC-SHA256 key for signature verification.</summary>
+    public string ApiKeyHash { get; set; } = string.Empty;
     public string Salt { get; set; } = string.Empty;
-
-    public int CompanyId { get; set; }
-
-    /// <summary>Selected as text so the underlying column may be an int or a string.</summary>
+    public string ApplicationName { get; set; } = string.Empty;
+    public long CompanyId { get; set; }
+    public string? AllowedIPs { get; set; }
+    public string? Scopes { get; set; }
     public string Status { get; set; } = string.Empty;
-
-    /// <summary>Treats common "enabled" representations as active so a status flag can't silently let a revoked key through.</summary>
+    public byte Environment { get; set; }
+    public string? JsonConfig { get; set; }
+    public DateTime IssuedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long IssuedBy { get; set; }
+    public long? UpdatedBy { get; set; }
+    public string? RawApiKey { get; set; }
+    public Guid? AppRefId { get; set; }
+    public string? ApplicationType { get; set; }
     public bool IsActive =>
         Status.Equals("Active", StringComparison.OrdinalIgnoreCase) ||
         Status.Equals("Enabled", StringComparison.OrdinalIgnoreCase) ||

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Options;
-using MVPAPI.WebHook.Application.Common;
-using MVPAPI.WebHook.Application.Interfaces;
+using MVPAPI.WebHook.Application.Common.Options;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
+using MVPAPI.WebHook.Application.Interfaces.Services;
 using MVPAPI.WebHook.Infrastructure.Delivery;
 using MVPAPI.WebHook.Infrastructure.Persistence;
 using MVPAPI.WebHook.Infrastructure.Repositories;
@@ -21,8 +21,8 @@ public static class DependencyInjection
         services.AddSingleton<IPortalDbConnectionFactory>(new PortalDbConnectionFactory(portalDb));
 
         services.AddScoped<IWebHookConnectionRepository, WebHookConnectionRepository>();
-        services.AddScoped<IWebhookEndpointRepository, WebhookEndpointRepository>();
-        services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+        services.AddScoped<IWebhookOutboundRepository, WebhookOutboundRepository>();
+        services.AddScoped<IWebhookInboundRepository, WebhookInboundRepository>();
         services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
         services.AddScoped<IClientCredentialRepository, ClientCredentialRepository>();
 
