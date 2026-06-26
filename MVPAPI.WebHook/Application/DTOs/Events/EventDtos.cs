@@ -9,7 +9,7 @@ public record PublishEventRequest(
     string Payload,
     string? Provider = null);
 
-public record EventResponse(
+public record WebhookInboundResponse(
     Guid Id,
     Guid WebhookId,
     string? Provider,

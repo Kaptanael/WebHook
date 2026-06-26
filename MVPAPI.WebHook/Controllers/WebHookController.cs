@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MVPAPI.WebHook.Application.DTOs.Connections;
-using MVPAPI.WebHook.Application.DTOs.Endpoints;
+using MVPAPI.WebHook.Application.DTOs.Outbounds;
 using MVPAPI.WebHook.Application.DTOs.Events;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 
@@ -11,8 +11,7 @@ namespace MVPAPI.WebHook.Controllers;
 [Produces("application/json")]
 public class WebHookController(
     IWebHookConnectionService connectionService,
-    IWebhookEndpointService endpointService,
-    IWebhookEventService eventService,
+    IWebhookEndpointService endpointService,    
     ILogger<WebHookController> logger) : ControllerBase
 {
     [HttpPost("connect")]
@@ -93,28 +92,5 @@ public class WebHookController(
         var schema = result.Value!;
         logger.LogInformation("Webhook schema returned successfully for WebhookId {WebhookId}, Endpoint {Endpoint}.", schema.Id, schema.Endpoint);
         return Ok(result.Value);
-    }
-
-    [HttpPost]
-    [EndpointSummary("Receive and queue an inbound webhook event")]
-    [EndpointDescription("Verifies the HMAC signature and timestamp, ensures the connection is active, then fans out a WebhookEvent per matching endpoint for background delivery.")]
-    [ProducesResponseType<IReadOnlyList<EventResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Event(
-        [FromBody] EventRequest request,
-        [FromHeader(Name = "X-Endpoint-Token")] string token,
-        [FromHeader(Name = "X-Signature")] string xSignature,
-        [FromHeader(Name = "X-Timestamp")] string xTimestamp,
-        CancellationToken cancellationToken)
-    {
-        var result = await eventService.PublishEventAsync(request, token, xSignature, xTimestamp, cancellationToken);
-        if (!result.IsSuccess)
-        {
-            logger.LogWarning("Webhook event rejected for endpoint {Token}: {Error}", token, result.Error);
-            return Unauthorized(new { Success = false, Error = result.Error });
-        }
-
-        logger.LogInformation("Webhook event accepted for endpoint {Token}, provider {Provider}, event type {EventType}.", token, request.Client, request.EventType);
-        return Ok(result.Value);
-    }
+    }    
 }

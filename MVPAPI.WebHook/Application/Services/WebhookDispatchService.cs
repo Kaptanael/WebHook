@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MVPAPI.WebHook.Application.Common;
-using MVPAPI.WebHook.Application.Interfaces;
+using MVPAPI.WebHook.Application.Common.Options;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 using MVPAPI.WebHook.Domain.Entities;
@@ -9,12 +9,10 @@ using MVPAPI.WebHook.Domain.Entities;
 namespace MVPAPI.WebHook.Application.Services;
 
 public class WebhookDispatchService(
-    IWebhookEventRepository eventRepository,
-    IWebhookEndpointRepository endpointRepository,
+    IWebhookInboundRepository inboundRepository,    
     IWebHookConnectionRepository connectionRepository,
     IWebhookEventLifecycleService eventLifecycle,
     IWebhookDeliveryClient deliveryClient,
-    ITokenDecoder tokenDecoder,
     IAccountApiClient accountApiClient,
     IOptions<WebhookDispatchOptions> options,
     ILogger<WebhookDispatchService> logger) : IWebhookDispatchService
@@ -23,13 +21,13 @@ public class WebhookDispatchService(
     {
         // Claiming happens atomically in the database (Pending/Retrying -> Processing),
         // so concurrent instances never pick up the same events.
-        var claimedEvents = await eventRepository.ClaimDueForProcessingAsync(batchSize, DateTime.UtcNow, cancellationToken);
+        var claimedEvents = await inboundRepository.ClaimDueForProcessingAsync(batchSize, DateTime.UtcNow, cancellationToken);
         if (claimedEvents.Count == 0)
         {
             return new DispatchSummary(0, 0, 0);
         }
 
-        // Deliver up to MaxDeliveryConcurrency events at once so one slow endpoint can't stall the whole
+        // Deliver up to MaxDeliveryConcurrency events at once so one slow inbound can't stall the whole
         // batch. Each delivery uses its own DB connection (Dapper opens per call) and the shared HttpClient
         // is thread-safe, so concurrent delivery is safe. Outcomes are counted lock-free.
         var delivered = 0;
@@ -61,7 +59,7 @@ public class WebhookDispatchService(
     public async Task<int> RecoverStaleClaimsAsync(TimeSpan olderThan, CancellationToken cancellationToken = default)
     {
         var nowUtc = DateTime.UtcNow;
-        var staleEvents = await eventRepository.ClaimStaleProcessingAsync(nowUtc - olderThan, nowUtc, cancellationToken);
+        var staleEvents = await inboundRepository.ClaimStaleProcessingAsync(nowUtc - olderThan, nowUtc, cancellationToken);
 
         foreach (var staleEvent in staleEvents)
         {
@@ -76,30 +74,29 @@ public class WebhookDispatchService(
         return staleEvents.Count;
     }
 
-    private async Task<DeliveryResult> DeliverAsync(WebhookEvent webhookEvent, CancellationToken cancellationToken)
+    private async Task<DeliveryResult> DeliverAsync(WebhookInbound webhookEvent, CancellationToken cancellationToken)
     {
-        var endpoint = await endpointRepository.GetByIdAsync(webhookEvent.WebhookId, cancellationToken);
-        if (endpoint is null)
+        var inbound = await inboundRepository.GetByEventTypeAsync(webhookEvent.EventType, cancellationToken);
+        if (inbound is null)
         {
             logger.LogWarning("Event {EventId}: endpoint {EndpointId} no longer exists; skipping delivery.", webhookEvent.Id, webhookEvent.WebhookId);
             return DeliveryResult.Fail("Endpoint no longer exists for the event.");
         }
 
-        var connection = await connectionRepository.GetByClientTokenAsync(endpoint.EndPointToken, cancellationToken);
+        var connection = await connectionRepository.GetByIdAsync(webhookEvent.WebhookId, cancellationToken);
         if (connection is null)
         {
-            logger.LogWarning("Event {EventId}: connection for endpoint {EndpointId} no longer exists; skipping delivery.", webhookEvent.Id, endpoint.Id);
+            logger.LogWarning("Event {EventId}: connection for endpoint {EndpointId} no longer exists; skipping delivery.", webhookEvent.Id, inbound.Id);
             return DeliveryResult.Fail("Connection no longer exists for the endpoint.");
         }
 
-        logger.LogInformation("Delivering event {EventId} (type {EventType}) to {Endpoint}.", webhookEvent.Id, webhookEvent.EventType, endpoint.Endpoint);
+        logger.LogInformation("Delivering event {EventId} (type {EventType}).", webhookEvent.Id, webhookEvent.EventType);
 
         var delivery = new WebhookDelivery(
-            webhookEvent.Id,
-            endpoint.Endpoint,
+            webhookEvent.Id,            
             webhookEvent.EventType,
             webhookEvent.Payload,
-            endpoint.EndPointToken,
+            connection.ClientToken,
             connection.MVPApiToken,
             connection.MVPApiRefreshToken);
 
@@ -115,7 +112,7 @@ public class WebhookDispatchService(
         // Bearer token expired — refresh and retry once.
         logger.LogInformation("Received 401 for event {EventId}; attempting token refresh.", webhookEvent.Id);
 
-        var decodeResult = tokenDecoder.Decode(endpoint.EndPointToken);
+        var decodeResult = ClientTokenConverter.Decode(connection.ClientToken);
         if (!decodeResult.IsSuccess)
         {
             logger.LogWarning("Token refresh aborted for event {EventId} — could not decode endpoint token: {Error}", webhookEvent.Id, decodeResult.Error);

@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using MVPAPI.WebHook.Application.Common;
+using MVPAPI.WebHook.Application.Common.Options;
 using MVPAPI.WebHook.Application.Interfaces.Repositories;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 using MVPAPI.WebHook.Domain.Enums;
@@ -7,7 +7,7 @@ using MVPAPI.WebHook.Domain.Enums;
 namespace MVPAPI.WebHook.Application.Services;
 
 public class WebhookEventLifecycleService(
-    IWebhookEventRepository eventRepository,
+    IWebhookInboundRepository eventRepository,
     IOptions<WebhookDispatchOptions> options,
     ILogger<WebhookEventLifecycleService> logger) : IWebhookEventLifecycleService
 {
@@ -68,6 +68,16 @@ public class WebhookEventLifecycleService(
 
         await eventRepository.UpdateAsync(webhookEvent, cancellationToken);
         return true;
+    }
+
+    public async Task<bool> RequeueAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var requeued = await eventRepository.RequeueFailedAsync(id, DateTime.UtcNow, cancellationToken);
+        if (requeued)
+            logger.LogInformation("Event {EventId} requeued for redelivery from Failed.", id);
+        else
+            logger.LogWarning("Requeue requested for event {EventId} but no Failed event matched.", id);
+        return requeued;
     }
 
     /// <summary>

@@ -1,5 +1,5 @@
 using MVPAPI.WebHook.Application;
-using MVPAPI.WebHook.Application.Common;
+using MVPAPI.WebHook.Application.Common.Options;
 using MVPAPI.WebHook.Application.Interfaces.Services;
 using MVPAPI.WebHook.Application.Services;
 using MVPAPI.WebHook.BackgroundServices;

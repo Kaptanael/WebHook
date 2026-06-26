@@ -9,7 +9,7 @@ public class WebHookConnectionRepository(IWebhookDbConnectionFactory connectionF
 {
     private const string SelectColumns = """
         SELECT Id, CompanyId, ApplicationName, ClientToken, IsActive,
-               MVPApiToken, MVPApiRefreshToken, MVPApiExpiresIn, CreatedAtUtc
+               MVPApiToken, MVPApiRefreshToken, MVPApiExpiresIn, MVPAuthKeyJson, SigningSecret, CreatedAtUtc
         FROM WebHookConnection
         """;
 
@@ -46,10 +46,10 @@ public class WebHookConnectionRepository(IWebhookDbConnectionFactory connectionF
     {
         const string sql = """
             INSERT INTO WebHookConnection
-                (CompanyId, ApplicationName, ClientToken, MVPApiToken, MVPApiRefreshToken, MVPApiExpiresIn)
+                (CompanyId, ApplicationName, ClientToken, MVPApiToken, MVPApiRefreshToken, MVPApiExpiresIn, MVPAuthKeyJson)
             OUTPUT inserted.Id
             VALUES
-                (@CompanyId, @ApplicationName, @ClientToken, @MVPApiToken, @MVPApiRefreshToken, @MVPApiExpiresIn)
+                (@CompanyId, @ApplicationName, @ClientToken, @MVPApiToken, @MVPApiRefreshToken, @MVPApiExpiresIn, @MVPAuthKeyJson)
             """;
 
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(cancellationToken);
@@ -68,7 +68,8 @@ public class WebHookConnectionRepository(IWebhookDbConnectionFactory connectionF
                 IsActive           = @IsActive,
                 MVPApiToken        = @MVPApiToken,
                 MVPApiRefreshToken = @MVPApiRefreshToken,
-                MVPApiExpiresIn    = @MVPApiExpiresIn
+                MVPApiExpiresIn    = @MVPApiExpiresIn,
+                MVPAuthKeyJson     = @MVPAuthKeyJson
             WHERE Id = @Id
             """;
 

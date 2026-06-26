@@ -1,5 +1,9 @@
-using MVPAPI.WebHook.Application.Interfaces;
+using Microsoft.Data.SqlClient.Internal;
+using Microsoft.Extensions.Options;
+using MVPAPI.WebHook.Application.Common;
+using MVPAPI.WebHook.Application.Common.Options;
 using MVPAPI.WebHook.Application.Interfaces.Services;
+using System.ComponentModel.Design;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -8,23 +12,29 @@ namespace MVPAPI.WebHook.Infrastructure.Delivery;
 
 public class HttpWebhookDeliveryClient(
     HttpClient httpClient,
-    ITokenDecoder tokenDecoder,
+    IOptions<WebhookRouteOptions> routeOptions,
     ILogger<HttpWebhookDeliveryClient> logger) : IWebhookDeliveryClient
 {
     public async Task<DeliveryResult> DeliverAsync(WebhookDelivery delivery, CancellationToken cancellationToken = default)
     {
+        if (!routeOptions.Value.Routes.TryGetValue(delivery.EventType, out var deliveryUrl) || string.IsNullOrWhiteSpace(deliveryUrl))
+        {
+            logger.LogWarning("Cannot provision endpoint for company {CompanyId}: no WebhookRoutes entry for event type '{EventType}'.", delivery.EventId, delivery.EventType);
+            return DeliveryResult.Fail($"No WebhookRoutes entry for event type '{delivery.EventType}'.");
+        }
+
         try
         {
-            var tokenDecoderResult = tokenDecoder.Decode(delivery.EndpointToken);
+            var tokenDecoderResult = ClientTokenConverter.Decode(delivery.EndpointToken);
             if (!tokenDecoderResult.IsSuccess)
             {
                 logger.LogWarning("Failed to decode endpoint token for event {EventId}: {Error}", delivery.EventId, tokenDecoderResult.Error);
                 return DeliveryResult.Fail($"Failed to decode endpoint token: {tokenDecoderResult.Error}");
             }
 
-            var apiKey = tokenDecoderResult.Value!.ApiKey;
+            var apiKey = tokenDecoderResult.Value!.ApiKey;            
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, delivery.TargetUrl)
+            using var request = new HttpRequestMessage(HttpMethod.Post, deliveryUrl)
             {
                 Content = new StringContent(delivery.Payload, Encoding.UTF8, "application/json")
             };            
@@ -44,7 +54,7 @@ public class HttpWebhookDeliveryClient(
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "Delivery of event {EventId} to {TargetUrl} failed.", delivery.EventId, delivery.TargetUrl);
+            logger.LogWarning(ex, "Delivery of event {EventId} to {TargetUrl} failed.", delivery.EventId, deliveryUrl);
             return DeliveryResult.Fail($"HTTP request failed: {ex.Message}");
         }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -53,7 +63,7 @@ public class HttpWebhookDeliveryClient(
         }
         catch (UriFormatException)
         {
-            return DeliveryResult.Fail($"Target URL is not valid: {delivery.TargetUrl}");
+            return DeliveryResult.Fail($"Target URL is not valid: {deliveryUrl}");
         }
     }
 }

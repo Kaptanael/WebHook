@@ -62,7 +62,7 @@
 <body>
 <header>
   <h1>Standard Webhooks Tester</h1>
-  <p><strong>POST /api/inbound</strong> with <code>x-api-key</code> + <code>webhook-id</code>, <code>webhook-timestamp</code>, <code>webhook-signature</code> headers. Signature is computed in-browser to match the server's <code>StandardWebhookSigner</code> (keyed by <code>whsec_</code>+the key's Salt). Token-based tester: <a href="webhook-test.html">webhook-test.html</a></p>
+  <p><strong>POST /api/inbound</strong> with <code>x-api-key</code> + <code>webhook-id</code>, <code>webhook-timestamp</code>, <code>webhook-signature</code> headers. Signature is computed in-browser to match the server's <code>WebhookSigner</code> (keyed directly by the key's Salt as raw UTF-8 bytes). Token-based tester: <a href="webhook-test.html">webhook-test.html</a></p>
 </header>
 
 <div class="topbar">
@@ -79,13 +79,13 @@
     <div class="section-title">API Key</div>
     <label>x-api-key (selects the PortalDB key row)</label>
     <input id="apiKey" placeholder="raw api-key" value="447bfa78f56a442693a4e079f006df50-8349d2ab2e1f46e2bd7e3918b3dd95bd" />
-    <div class="hint">Sent as <code>x-api-key</code>. The server keys the HMAC with <code>whsec_</code>+ that key's Salt — enter the Salt below.</div>
+    <div class="hint">Sent as <code>x-api-key</code>. The server keys the HMAC directly with that key's Salt — enter the Salt below.</div>
 
     <div class="section-title">Endpoint Secret</div>
-    <label>SigningSecret (the key's Salt; whsec_-prefixed = base64 key)</label>
-    <input id="secret" placeholder="whsec_... or raw secret" value="whsec_Vbe8H05Y6gedrN5hk2T/aBKaxE/XljNEumjcWbvsQFg=" />
+    <label>SigningSecret (the key's Salt, used as the raw HMAC key)</label>
+    <input id="secret" placeholder="the key's Salt" value="8I5Buxsdrq5zNJOZ83mvXTrCMLdnbxHll2hHZNQPQio=" />
     <div class="info-box" id="secretInfo">
-      <span class="key-info">Format:</span> Detected as <code>whsec_</code>-prefixed (base64-encoded binary)
+      <span class="key-info">Format:</span> Raw UTF-8 bytes
     </div>
 
     <div class="section-title">Message Headers</div>
@@ -98,13 +98,9 @@
     <div class="hint">Unix timestamp (seconds). Auto-generated if blank. Must be within 5 min (300s tolerance).</div>
 
     <div class="section-title">Payload</div>
-    <label>X-Event-Type <span style="font-weight:400;">(optional)</span></label>
-    <input id="eventType" value="door.manual" />
-    <div class="hint">Optional. If the JSON body has a top-level <code>type</code> (Standard Webhooks envelope), that wins and this header is ignored — leave it blank. Otherwise the event type comes from here. Must resolve to a routed type (<code>door.manual</code> / <code>relay.manual</code>) to provision/deliver.</div>
-
     <label>JSON body</label>
-    <textarea id="body">{"companyId":500646,"actionType":"Lock","strikeTimeOverrideInSeconds":67,"doorIds":["335ACAD0-D282-4761-992C-6A50F29DA777"]}</textarea>
-    <div class="hint">Exact bytes are signed — no reformatting between signing and send. For <code>door.manual</code> the body is delivered as-is to the door service: flat <code>{companyId, actionType, strikeTimeOverrideInSeconds, doorIds}</code> — actionType ∈ Unlock/Lock/UnlockHold, doorIds = reader GUIDs. This default is a verified end-to-end <code>200</code>.</div>
+    <textarea id="body">{"type":"door.manual","companyId":500646,"actionType":"Lock","strikeTimeOverrideInSeconds":67,"doorIds":["335ACAD0-D282-4761-992C-6A50F29DA777"]}</textarea>
+    <div class="hint">The event type is read from the body's top-level <code>type</code> field (Standard Webhooks envelope) — it must be a routed type (<code>door.manual</code> / <code>relay.manual</code>). Exact bytes are signed — no reformatting between signing and send.</div>
 
     <button id="computeBtn">Compute Signature</button>
 
@@ -166,24 +162,13 @@ $('secret').addEventListener('input', updateSecretInfo);
 function updateSecretInfo() {
   const secret = $('secret').value.trim();
   const info = $('secretInfo');
-  if (secret.startsWith('whsec_')) info.innerHTML = '<span class="key-info">Format:</span> <code>whsec_</code>-prefixed (base64-encoded binary)';
-  else if (secret) info.innerHTML = '<span class="key-info">Format:</span> Raw UTF-8 bytes';
+  if (secret) info.innerHTML = '<span class="key-info">Format:</span> Raw UTF-8 bytes';
   else info.innerHTML = '<span class="key-info" style="color:var(--err);">No secret entered</span>';
 }
 updateSecretInfo();
 
-// whsec_ -> base64-decode, else raw UTF-8
+// The Salt is used directly as the raw UTF-8 HMAC key.
 function keyBytes(secret) {
-  if (secret.startsWith('whsec_')) {
-    try {
-      const bin = atob(secret.slice(6));
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return { bytes, format: 'whsec base64' };
-    } catch (e) {
-      return { error: `Failed to decode base64: ${e.message}` };
-    }
-  }
   return { bytes: new TextEncoder().encode(secret), format: 'raw UTF-8' };
 }
 
@@ -223,12 +208,10 @@ $('computeBtn').addEventListener('click', async () => {
     const sig = `v1,${b64}`;
     $('debugFinal').textContent = sig;
 
-    const evtLine = $('eventType').value.trim() ? `X-Event-Type: ${$('eventType').value.trim()}\n` : '';
     $('requestText').textContent =
       `POST /api/inbound\n` +
       `Content-Type: application/json\n` +
       `x-api-key: ${$('apiKey').value}\n` +
-      evtLine +
       `webhook-id: ${id}\n` +
       `webhook-timestamp: ${ts}\n` +
       `webhook-signature: ${sig}\n\n` + body;
@@ -258,8 +241,6 @@ $('sendBtn').addEventListener('click', async () => {
     'webhook-timestamp': ts,
     'webhook-signature': sig,
   };
-  // X-Event-Type is optional — omit when blank so the body's "type" (Standard Webhooks envelope) is used.
-  if ($('eventType').value.trim()) headers['X-Event-Type'] = $('eventType').value.trim();
 
   $('sendOut').classList.add('show');
   $('responseStatus').textContent = 'Sending…'; $('responseStatus').className = 'status progress';

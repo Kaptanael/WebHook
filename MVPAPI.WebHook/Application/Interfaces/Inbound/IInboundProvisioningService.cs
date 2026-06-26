@@ -14,5 +14,5 @@ public interface IInboundProvisioningService
     /// endpoint if necessary. Returns the endpoint, or null when it cannot be provisioned (no active
     /// client credential, no <c>WebhookRoutes</c> entry for the event type, or token acquisition failed).
     /// </summary>
-    Task<WebhookEndpoint?> EnsureProvisionedAsync(int companyId, string rawApiKey, string eventType, CancellationToken cancellationToken = default);
+    Task<WebhookOutbound?> EnsureProvisionedAsync(int companyId, string rawApiKey, string eventType, CancellationToken cancellationToken = default);
 }

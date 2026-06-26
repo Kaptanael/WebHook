@@ -1,6 +1,6 @@
 using AutoMapper;
 using MVPAPI.WebHook.Application.DTOs.Connections;
-using MVPAPI.WebHook.Application.DTOs.Endpoints;
+using MVPAPI.WebHook.Application.DTOs.Outbounds;
 using MVPAPI.WebHook.Application.DTOs.Events;
 using MVPAPI.WebHook.Domain.Entities;
 
@@ -10,24 +10,24 @@ public class MappingProfile : Profile
 {
     public MappingProfile()
     {
-        CreateMap<WebhookEvent, EventResponse>()
-            .ForCtorParam(nameof(EventResponse.Id), o => o.MapFrom(s => s.Id))
-            .ForCtorParam(nameof(EventResponse.WebhookId), o => o.MapFrom(s => s.WebhookId))
-            .ForCtorParam(nameof(EventResponse.Provider), o => o.MapFrom(s => s.Provider))
-            .ForCtorParam(nameof(EventResponse.EventType), o => o.MapFrom(s => s.EventType))
-            .ForCtorParam(nameof(EventResponse.Status), o => o.MapFrom(s => s.Status))
-            .ForCtorParam(nameof(EventResponse.Attempts), o => o.MapFrom(s => s.Attempts))
-            .ForCtorParam(nameof(EventResponse.LastError), o => o.MapFrom(s => s.LastError))
-            .ForCtorParam(nameof(EventResponse.ReceivedAtUtc), o => o.MapFrom(s => s.ReceivedAtUtc))
-            .ForCtorParam(nameof(EventResponse.NextAttemptAtUtc), o => o.MapFrom(s => s.NextAttemptAtUtc))
-            .ForCtorParam(nameof(EventResponse.ProcessedAtUtc), o => o.MapFrom(s => s.ProcessedAtUtc));
+        CreateMap<WebhookInbound, WebhookInboundResponse>()
+            .ForCtorParam(nameof(WebhookInboundResponse.Id), o => o.MapFrom(s => s.Id))
+            .ForCtorParam(nameof(WebhookInboundResponse.WebhookId), o => o.MapFrom(s => s.WebhookId))
+            .ForCtorParam(nameof(WebhookInboundResponse.Provider), o => o.MapFrom(s => s.Provider))
+            .ForCtorParam(nameof(WebhookInboundResponse.EventType), o => o.MapFrom(s => s.EventType))
+            .ForCtorParam(nameof(WebhookInboundResponse.Status), o => o.MapFrom(s => s.Status))
+            .ForCtorParam(nameof(WebhookInboundResponse.Attempts), o => o.MapFrom(s => s.Attempts))
+            .ForCtorParam(nameof(WebhookInboundResponse.LastError), o => o.MapFrom(s => s.LastError))
+            .ForCtorParam(nameof(WebhookInboundResponse.ReceivedAtUtc), o => o.MapFrom(s => s.ReceivedAtUtc))
+            .ForCtorParam(nameof(WebhookInboundResponse.NextAttemptAtUtc), o => o.MapFrom(s => s.NextAttemptAtUtc))
+            .ForCtorParam(nameof(WebhookInboundResponse.ProcessedAtUtc), o => o.MapFrom(s => s.ProcessedAtUtc));
 
-        CreateMap<WebhookEndpoint, EndpointResponse>()
-            .ForCtorParam(nameof(EndpointResponse.Id), o => o.MapFrom(s => s.Id))
-            .ForCtorParam(nameof(EndpointResponse.EndpointToken), o => o.MapFrom(s => s.EndPointToken))
-            .ForCtorParam(nameof(EndpointResponse.Endpoint), o => o.MapFrom(s => s.Endpoint))
-            .ForCtorParam(nameof(EndpointResponse.CompanyId), o => o.MapFrom(s => s.CompanyId))
-            .ForCtorParam(nameof(EndpointResponse.TriggerJson), o => o.MapFrom(s => s.TriggerConfigJson));
+        CreateMap<WebhookOutbound, WebhookOutboundResponse>()
+            .ForCtorParam(nameof(WebhookOutboundResponse.Id), o => o.MapFrom(s => s.Id))
+            .ForCtorParam(nameof(WebhookOutboundResponse.EndpointToken), o => o.MapFrom(s => s.EndPointToken))
+            .ForCtorParam(nameof(WebhookOutboundResponse.Endpoint), o => o.MapFrom(s => s.Endpoint))
+            .ForCtorParam(nameof(WebhookOutboundResponse.CompanyId), o => o.MapFrom(s => s.CompanyId))
+            .ForCtorParam(nameof(WebhookOutboundResponse.TriggerJson), o => o.MapFrom(s => s.TriggerConfigJson));
 
         CreateMap<WebHookConnection, ConnectionResponse>()
             .ForCtorParam(nameof(ConnectionResponse.Id), o => o.MapFrom(s => s.Id))

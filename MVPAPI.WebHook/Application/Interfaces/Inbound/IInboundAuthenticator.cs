@@ -1,15 +1,22 @@
 using MVPAPI.WebHook.Application.Common;
-using MVPAPI.WebHook.Domain.Entities;
 
 namespace MVPAPI.WebHook.Application.Interfaces.Inbound;
 
-/// <summary>
-/// Authenticates an inbound request against a candidate <see cref="WebhookEndpoint"/> using one
-/// mechanism (Standard Webhooks signature, API key, custom token). The pipeline tries every
-/// authenticator against each active endpoint, so a method that doesn't apply (its header is absent)
-/// simply fails and the next is tried — no per-endpoint method selector is needed.
-/// </summary>
+public enum InboundAuthOutcome
+{
+    NotPresented,
+    Authenticated,
+    Rejected
+}
+
+public sealed record InboundAuthResult(InboundAuthOutcome Outcome, int CompanyId = 0, string? apiKey = null, string? ApplicationName = null, string? Error = null)
+{
+    public static InboundAuthResult NotPresented() => new(InboundAuthOutcome.NotPresented);
+    public static InboundAuthResult Authenticated(int companyId, string apiKey, string applicationName) => new(InboundAuthOutcome.Authenticated, companyId, apiKey, applicationName);
+    public static InboundAuthResult Rejected(string error) => new(InboundAuthOutcome.Rejected, Error: error);
+}
+
 public interface IInboundAuthenticator
 {
-    Result Authenticate(InboundRequest request, WebhookEndpoint endpoint);
+    Task<Result<InboundAuthResult>> AuthenticateAsync(InboundRequest request, CancellationToken cancellationToken = default);
 }
